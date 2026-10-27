@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Compass } from "lucide-react";
 import { buttonClass } from "@/components/ui/button";
 import styles from "./not-found.module.css";
+
+export const metadata: Metadata = {
+  title: "页面不在了 · 词锚 Word Anchor",
+  description: "这个地址没有对应的清单页面，它可能因为单词数量变化被重新编排了。",
+};
 
 export default function NotFound() {
   return (
