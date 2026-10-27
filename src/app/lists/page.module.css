@@ -1,0 +1,61 @@
+.toolbar {
+  display: flex;
+  padding: 12px 14px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--slip) 55%, transparent);
+}
+
+.overview {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  color: var(--muted);
+  font-size: var(--t-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.overview strong {
+  color: var(--ink);
+  font-family: var(--font-term);
+  font-size: var(--t-lg);
+  font-weight: 600;
+}
+
+.progress {
+  display: flex;
+  width: 140px;
+  align-items: center;
+  gap: 8px;
+}
+
+.progressBar {
+  flex: 1;
+}
+
+.fifo {
+  display: flex;
+  margin: 24px 0 18px;
+  padding: 2px 0 2px 12px;
+  align-items: flex-start;
+  border-left: 2px solid var(--oche);
+  color: var(--muted);
+  font-size: var(--t-sm);
+  text-wrap: pretty;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (pointer: coarse) {
+  .toolbar {
+    padding-block: 14px;
+  }
+}

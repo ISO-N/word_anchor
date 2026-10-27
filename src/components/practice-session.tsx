@@ -8,20 +8,24 @@ import {
   Link2,
   RotateCcw,
   Sparkles,
-  Trophy,
   X,
 } from "lucide-react";
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import type { WordRecord } from "@/lib/types";
+import { buttonClass } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { curvePath } from "@/lib/geometry";
 import { formatClock } from "@/lib/format";
 import { markListComplete } from "@/lib/store";
+import type { WordRecord } from "@/lib/types";
+import styles from "./practice-session.module.css";
 
 type Side = "term" | "meaning";
 type NodeRef = { side: Side; id: number };
@@ -51,13 +55,6 @@ function shuffle<T>(items: T[]): T[] {
   return result;
 }
 
-function curvePath(start: Point, end: Point): string {
-  const bend = Math.max(36, Math.abs(end.x - start.x) * 0.38);
-  return `M ${start.x} ${start.y} C ${start.x + bend} ${start.y}, ${
-    end.x - bend
-  } ${end.y}, ${end.x} ${end.y}`;
-}
-
 export function PracticeSession({
   listIndex,
   words,
@@ -66,7 +63,8 @@ export function PracticeSession({
   nextIndex,
 }: PracticeSessionProps) {
   const nodeKey = (side: Side, id: number) => `${side}-${id}`;
-  const wordKey = words.map((word) => word.id).join("-");
+  const termLabelId = useId();
+  const meaningLabelId = useId();
 
   const [terms, setTerms] = useState<WordRecord[]>([]);
   const [meanings, setMeanings] = useState<WordRecord[]>([]);
@@ -86,7 +84,7 @@ export function PracticeSession({
 
   const stageRef = useRef<HTMLDivElement | null>(null);
   const nodeRefs = useRef(new Map<string, HTMLButtonElement>());
-  const startedAtRef = useRef(Date.now());
+  const startedAtRef = useRef(0);
   const elapsedRef = useRef(0);
   const suppressClickRef = useRef(false);
   const completionSentRef = useRef(false);
@@ -122,9 +120,7 @@ export function PracticeSession({
   useEffect(() => {
     if (!preparedRef.current || completed) return;
     const timer = window.setInterval(() => {
-      const nextElapsed = Math.floor(
-        (Date.now() - startedAtRef.current) / 1000,
-      );
+      const nextElapsed = Math.floor((Date.now() - startedAtRef.current) / 1000);
       elapsedRef.current = nextElapsed;
       setElapsed(nextElapsed);
     }, 1000);
@@ -163,13 +159,11 @@ export function PracticeSession({
     const stage = stageRef.current;
     const observer = new ResizeObserver(measure);
     if (stage) observer.observe(stage);
-    window.addEventListener("resize", measure);
     document.fonts?.ready.then(measure).catch(() => undefined);
 
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
-      window.removeEventListener("resize", measure);
     };
   }, [terms, meanings, measure]);
 
@@ -267,10 +261,7 @@ export function PracticeSession({
         window.setTimeout(() => {
           suppressClickRef.current = false;
         }, 0);
-        const element = document.elementFromPoint(
-          event.clientX,
-          event.clientY,
-        );
+        const element = document.elementFromPoint(event.clientX, event.clientY);
         const node = element?.closest<HTMLElement>("[data-node-side]");
         const side = node?.dataset.nodeSide as Side | undefined;
         const id = Number(node?.dataset.nodeId);
@@ -325,14 +316,16 @@ export function PracticeSession({
 
   useEffect(() => {
     if (completed || total === 0) return;
+    /* 一旦完赛过，关闭摘要后不再自动重开 */
+    if (completionSentRef.current) return;
     const allCorrect = words.every((word) => pairs[word.id] === word.id);
     if (!allCorrect) return;
 
     const timer = setTimeout(() => {
-      setResultElapsed(elapsedRef.current);
-      setCompleted(true);
       if (completionSentRef.current) return;
       completionSentRef.current = true;
+      setResultElapsed(elapsedRef.current);
+      setCompleted(true);
 
       try {
         markListComplete(listIndex, attempts, mistakes);
@@ -371,101 +364,113 @@ export function PracticeSession({
     return partner === id ? "correct" : "wrong";
   };
 
+  const statusText = (side: Side, id: number) => {
+    const status = getStatus(side, id);
+    if (status === "correct") return "已正确连接";
+    if (status === "wrong") return "连接错误";
+    return "尚未连接";
+  };
+
   const activeSourcePoint =
     selected && points[nodeKey(selected.side, selected.id)];
 
-  const progressPercent = total ? Math.round((correctCount / total) * 100) : 0;
-
   if (total === 0) {
     return (
-      <div className="shell practice-empty">
-        <span className="empty-illustration">
-          <Link2 size={32} />
-        </span>
-        <p className="eyebrow">NOT ENOUGH WORDS</p>
-        <h1>这份清单还没有单词</h1>
-        <p>先往词库添加单词，再回来开始练习。</p>
-        <div className="practice-empty-actions">
-          <Link href="/words" className="button button-primary">
-            去添加单词
-            <ArrowRight size={17} />
-          </Link>
-          <Link href="/lists" className="button button-ghost">
-            返回清单
-          </Link>
+      <div className="shell page-shell">
+        <div className="empty-state">
+          <span className="empty-state-icon">
+            <Link2 size={20} strokeWidth={1.8} />
+          </span>
+          <h2>这份清单还没有单词</h2>
+          <p>先往词库添加单词，再回来开始练习。</p>
+          <div className={styles.emptyActions}>
+            <Link href="/words" className={buttonClass()}>
+              去添加单词
+              <ArrowRight size={16} strokeWidth={1.8} />
+            </Link>
+            <Link href="/lists" className={buttonClass({ variant: "ghost" })}>
+              返回清单
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="shell practice-shell">
-      <div className="practice-topbar">
-        <Link href="/lists" className="back-link">
-          <ArrowLeft size={17} />
+    <div className={`shell ${styles.page}`}>
+      <div className={styles.topbar}>
+        <Link href="/lists" className={styles.back}>
+          <ArrowLeft size={16} strokeWidth={1.8} />
           学习清单
         </Link>
-        <span className="topbar-separator" />
-        <span className="list-tag">
+        <span className={styles.separator} aria-hidden="true" />
+        <span className={styles.listTag} translate="no">
           LIST {String(listIndex).padStart(2, "0")}
         </span>
-        {isPartial && <span className="soft-tag">未满一组</span>}
+        {isPartial && <span className={styles.tag}>未满一组</span>}
         {alreadyCompleted && !completed && (
-          <span className="soft-tag soft-tag-done">
-            <Check size={12} />
+          <span className={`${styles.tag} ${styles.tagDone}`}>
+            <Check size={12} strokeWidth={2.4} />
             练过一次
           </span>
         )}
-        <div className="practice-topbar-actions">
-          <div className="timer-chip">
-            <span className="timer-dot" />
-            <span className="timer-label">用时</span>
-            <strong>{formatClock(elapsed)}</strong>
-          </div>
-          <button className="button button-ghost button-small" onClick={resetSession}>
-            <RotateCcw size={15} />
+        <div className={styles.topActions}>
+          <span className={styles.timer}>
+            用时
+            <span className={styles.timerValue}>{formatClock(elapsed)}</span>
+          </span>
+          <button
+            type="button"
+            className={buttonClass({ variant: "ghost", size: "sm" })}
+            onClick={resetSession}
+          >
+            <RotateCcw size={15} strokeWidth={1.8} />
             重新开始
           </button>
         </div>
       </div>
 
-      <div className="practice-heading">
+      <div className={styles.heading}>
         <div>
-          <p className="eyebrow">MATCH THE MEANINGS</p>
-          <h1>把单词和释义连起来</h1>
-          <p className="practice-subtitle">
+          <h1 className={styles.title}>把单词和释义连起来</h1>
+          <p className={styles.subtitle}>
             拖动卡片边缘的圆点拉出连线，或先点单词、再点释义。
           </p>
         </div>
-        <div className="practice-score">
-          <div className="score-copy">
-            <strong>
-              {correctCount}
-              <span> / {total}</span>
-            </strong>
-            <span>已正确连接</span>
-          </div>
-          <div className="score-ring" style={{ "--score": `${progressPercent * 3.6}deg` } as React.CSSProperties}>
-            <span>{progressPercent}%</span>
-          </div>
-        </div>
+        <p className={styles.score}>
+          <span className={styles.scoreValue}>
+            {correctCount}
+            <span className={styles.scoreTotal}> / {total}</span>
+          </span>
+          <span className={styles.scoreLabel}>已正确连接</span>
+        </p>
       </div>
 
-      <div className="practice-board">
-        <div className="board-head">
-          <span className="board-column-label">
-            <span className="label-index">A</span> WORDS
+      <div className={styles.board}>
+        <div className={styles.boardHead}>
+          <span className={styles.columnLabel} id={termLabelId}>
+            <span className={styles.labelIndex} aria-hidden="true">
+              A
+            </span>
+            单词
           </span>
-          <span className="board-center-mark" aria-hidden="true">
-            <Link2 size={16} />
+          <span className={styles.centerMark} aria-hidden="true">
+            <Link2 size={15} strokeWidth={1.8} />
           </span>
-          <span className="board-column-label board-column-label-right">
-            MEANINGS <span className="label-index">B</span>
+          <span
+            className={`${styles.columnLabel} ${styles.columnLabelRight}`}
+            id={meaningLabelId}
+          >
+            释义
+            <span className={styles.labelIndex} aria-hidden="true">
+              B
+            </span>
           </span>
         </div>
 
-        <div className="stage" ref={stageRef}>
-          <svg className="connection-layer" aria-hidden="true">
+        <div className={styles.stage} ref={stageRef}>
+          <svg className={styles.lines} aria-hidden="true" focusable="false">
             {pairEntries.map(({ termId, meaningId }) => {
               const start = points[nodeKey("term", termId)];
               const end = points[nodeKey("meaning", meaningId)];
@@ -475,7 +480,9 @@ export function PracticeSession({
                 <path
                   key={`${termId}-${meaningId}`}
                   d={curvePath(start, end)}
-                  className={`connection-line ${correct ? "is-correct" : "is-wrong"}`}
+                  className={`${styles.line} ${
+                    correct ? styles.lineCorrect : styles.lineWrong
+                  }`}
                 />
               );
             })}
@@ -490,12 +497,16 @@ export function PracticeSession({
                     ? dragPoint
                     : activeSourcePoint,
                 )}
-                className="connection-line is-dragging"
+                className={`${styles.line} ${styles.lineDragging}`}
               />
             )}
           </svg>
 
-          <div className="board-column terms-column">
+          <div
+            className={styles.column}
+            role="group"
+            aria-labelledby={termLabelId}
+          >
             {terms.map((word, index) => {
               const status = getStatus("term", word.id);
               const isSelected =
@@ -509,30 +520,52 @@ export function PracticeSession({
                   key={word.id}
                   type="button"
                   ref={(element) => {
-                    if (element) nodeRefs.current.set(nodeKey("term", word.id), element);
-                    else nodeRefs.current.delete(nodeKey("term", word.id));
+                    if (element) {
+                      nodeRefs.current.set(nodeKey("term", word.id), element);
+                    } else {
+                      nodeRefs.current.delete(nodeKey("term", word.id));
+                    }
                   }}
                   data-node-side="term"
                   data-node-id={word.id}
-                  className={`node-card term-node${status ? ` is-${status}` : ""}${isSelected ? " is-selected" : ""}${isDragging ? " is-dragging" : ""}`}
+                  className={[
+                    styles.card,
+                    status === "correct" ? styles.correct : "",
+                    status === "wrong" ? styles.wrong : "",
+                    isSelected ? styles.selected : "",
+                    isDragging ? styles.dragging : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  aria-pressed={isSelected}
+                  aria-label={`${word.term}，${statusText("term", word.id)}`}
                   onPointerDown={(event) => beginDrag(event, "term", word.id)}
                   onClick={() => handleNodeClick("term", word.id)}
                 >
-                  <span className="node-index">
+                  <span className={styles.index} aria-hidden="true">
                     {String(index + 1).padStart(2, "0")}
                   </span>
-                  <span className="node-text">{word.term}</span>
-                  <span className="node-dot">
-                    {status === "correct" && <Check size={10} strokeWidth={3} />}
-                    {status === "wrong" && <X size={10} strokeWidth={3} />}
+                  <span className={`${styles.text} ${styles.termText}`} lang="en" translate="no">
+                    {word.term}
+                  </span>
+                  <span
+                    className={`${styles.dot} ${styles.dotRight}`}
+                    aria-hidden="true"
+                  >
+                    {status === "correct" && <Check size={9} strokeWidth={3} />}
+                    {status === "wrong" && <X size={9} strokeWidth={3} />}
                   </span>
                 </button>
               );
             })}
           </div>
 
-          <div className="board-column meanings-column">
-            {meanings.map((word, index) => {
+          <div
+            className={styles.column}
+            role="group"
+            aria-labelledby={meaningLabelId}
+          >
+            {meanings.map((word) => {
               const status = getStatus("meaning", word.id);
               const isSelected =
                 selected?.side === "meaning" && selected.id === word.id;
@@ -545,22 +578,37 @@ export function PracticeSession({
                   key={word.id}
                   type="button"
                   ref={(element) => {
-                    if (element) nodeRefs.current.set(nodeKey("meaning", word.id), element);
-                    else nodeRefs.current.delete(nodeKey("meaning", word.id));
+                    if (element) {
+                      nodeRefs.current.set(nodeKey("meaning", word.id), element);
+                    } else {
+                      nodeRefs.current.delete(nodeKey("meaning", word.id));
+                    }
                   }}
                   data-node-side="meaning"
                   data-node-id={word.id}
-                  className={`node-card meaning-node${status ? ` is-${status}` : ""}${isSelected ? " is-selected" : ""}${isDragging ? " is-dragging" : ""}`}
+                  className={[
+                    styles.card,
+                    status === "correct" ? styles.correct : "",
+                    status === "wrong" ? styles.wrong : "",
+                    isSelected ? styles.selected : "",
+                    isDragging ? styles.dragging : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  aria-pressed={isSelected}
+                  aria-label={`${word.meaning}，${statusText("meaning", word.id)}`}
                   onPointerDown={(event) => beginDrag(event, "meaning", word.id)}
                   onClick={() => handleNodeClick("meaning", word.id)}
                 >
-                  <span className="node-dot">
-                    {status === "correct" && <Check size={10} strokeWidth={3} />}
-                    {status === "wrong" && <X size={10} strokeWidth={3} />}
+                  <span
+                    className={`${styles.dot} ${styles.dotLeft}`}
+                    aria-hidden="true"
+                  >
+                    {status === "correct" && <Check size={9} strokeWidth={3} />}
+                    {status === "wrong" && <X size={9} strokeWidth={3} />}
                   </span>
-                  <span className="node-text">{word.meaning}</span>
-                  <span className="node-letter">
-                    {String.fromCharCode(65 + index)}
+                  <span className={`${styles.text} ${styles.meaningText}`}>
+                    {word.meaning}
                   </span>
                 </button>
               );
@@ -568,38 +616,52 @@ export function PracticeSession({
           </div>
         </div>
 
-        <div className="board-foot">
-          <div className="board-progress">
-            <span className="board-progress-label">
-              已连接 <strong>{connectedCount}</strong> / {total}
+        <div className={styles.foot}>
+          <div className={styles.progress}>
+            <span>
+              已连接 {connectedCount} / {total}
             </span>
-            <span className="board-progress-track">
-              <span style={{ width: `${(connectedCount / total) * 100}%` }} />
+            <span className={`progress-rule ${styles.track}`}>
+              <span
+                style={{
+                  width: `${total ? (connectedCount / total) * 100 : 0}%`,
+                }}
+              />
             </span>
           </div>
+
           <div
-            className={`board-feedback${feedback ? ` is-${feedback.type}` : ""}`}
+            className={[
+              styles.feedback,
+              feedback?.type === "correct" ? styles.feedbackCorrect : "",
+              feedback?.type === "wrong" ? styles.feedbackWrong : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
             key={feedback?.key ?? "idle"}
+            role="status"
             aria-live="polite"
           >
             {feedback ? (
               <>
                 {feedback.type === "correct" ? (
-                  <Check size={15} />
+                  <Check size={14} strokeWidth={2.4} />
                 ) : (
-                  <X size={15} />
+                  <X size={14} strokeWidth={2.4} />
                 )}
                 {feedback.message}
               </>
             ) : (
               <>
-                <Sparkles size={15} />
+                <Sparkles size={14} strokeWidth={1.8} />
                 连接正确的词义，完成后会自动收束
               </>
             )}
           </div>
+
           <button
-            className="clear-link"
+            type="button"
+            className={styles.clear}
             onClick={() => {
               setPairs({});
               setSelected(null);
@@ -612,62 +674,61 @@ export function PracticeSession({
         </div>
       </div>
 
-      {completed && (
-        <div className="completion-overlay">
-          <div className="completion-card">
-            <div className="completion-ring" aria-hidden="true">
-              <span className="completion-anchor">
-                <Trophy size={28} strokeWidth={1.5} />
-              </span>
-            </div>
-            <p className="eyebrow">ANCHORED · LIST {String(listIndex).padStart(2, "0")}</p>
-            <h2>全部连对，记忆又深了一点。</h2>
-            <p className="completion-subtitle">
-              {total} 个单词与释义已经重新系在一起。
-              {completionError ? `（记录保存失败：${completionError}）` : ""}
-            </p>
-            <div className="completion-stats">
-              <div>
-                <strong>{formatClock(resultElapsed)}</strong>
-                <span>本轮用时</span>
-              </div>
-              <div>
-                <strong>{attempts}</strong>
-                <span>连接次数</span>
-              </div>
-              <div>
-                <strong className={mistakes > 0 ? "stat-warm" : ""}>
-                  {mistakes}
-                </strong>
-                <span>失误次数</span>
-              </div>
-            </div>
-            <div className="completion-actions">
-              <button className="button button-primary" onClick={resetSession}>
-                <RotateCcw size={16} />
-                再练一次
-              </button>
-              {nextIndex ? (
-                <Link
-                  href={`/practice/?list=${nextIndex}`}
-                  className="button button-ghost"
-                >
-                  下一份清单
-                  <ArrowRight size={16} />
-                </Link>
-              ) : (
-                <Link href="/lists" className="button button-ghost">
-                  返回清单
-                  <ArrowRight size={16} />
-                </Link>
-              )}
-            </div>
-            <Link href="/lists" className="completion-back">
-              回到学习清单
-            </Link>
-          </div>
+      <Dialog
+        open={completed}
+        onClose={() => setCompleted(false)}
+        title={`LIST ${String(listIndex).padStart(2, "0")} 全部连对`}
+        description={
+          completionError
+            ? `记录保存失败：${completionError}`
+            : `${total} 个单词与释义已经重新系在一起。`
+        }
+        footer={
+          <>
+            <button
+              type="button"
+              className={buttonClass()}
+              onClick={resetSession}
+            >
+              <RotateCcw size={16} strokeWidth={1.8} />
+              再练一次
+            </button>
+            {nextIndex ? (
+              <Link
+                href={`/practice/?list=${nextIndex}`}
+                className={buttonClass({ variant: "ghost" })}
+              >
+                下一份清单
+                <ArrowRight size={16} strokeWidth={1.8} />
+              </Link>
+            ) : (
+              <Link href="/lists" className={buttonClass({ variant: "ghost" })}>
+                返回清单
+                <ArrowRight size={16} strokeWidth={1.8} />
+              </Link>
+            )}
+          </>
+        }
+      >
+        <div className={styles.stats}>
+          <span className={styles.statItem}>
+            <span className={styles.statValue}>{formatClock(resultElapsed)}</span>
+            <span className={styles.statLabel}>本轮用时</span>
+          </span>
+          <span className={styles.statItem}>
+            <span className={styles.statValue}>{attempts}</span>
+            <span className={styles.statLabel}>连接次数</span>
+          </span>
+          <span className={styles.statItem}>
+            <span
+              className={`${styles.statValue}${mistakes > 0 ? ` ${styles.statWarm}` : ""}`}
+            >
+              {mistakes}
+            </span>
+            <span className={styles.statLabel}>失误次数</span>
+          </span>
         </div>
-      )}
+      </Dialog>
     </div>
   );
 }

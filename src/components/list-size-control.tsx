@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Minus, Plus, Settings2 } from "lucide-react";
+import { Minus, Plus } from "lucide-react";
 import { MAX_LIST_SIZE, MIN_LIST_SIZE } from "@/lib/data";
 import { updateListSize } from "@/lib/store";
 import { useAppData } from "@/lib/use-app-data";
+import styles from "./list-size-control.module.css";
 
 const PRESETS = [4, 6, 8, 10];
 
@@ -25,47 +26,52 @@ export function ListSizeControl() {
   }
 
   return (
-    <div className="list-size-control">
-      <span className="size-control-label">
-        <Settings2 size={16} />
-        每组单词数
-      </span>
-      <div className="size-stepper">
+    <div className={styles.control}>
+      <span className={styles.label}>每组单词数</span>
+
+      <div className={styles.stepper}>
         <button
           type="button"
-          className="stepper-button"
+          className={styles.step}
           onClick={() => applySize(size - 1)}
           disabled={size <= MIN_LIST_SIZE}
           aria-label="减少每组单词数"
         >
-          <Minus size={14} />
+          <Minus size={15} strokeWidth={2} />
         </button>
-        <span className="stepper-value" aria-live="polite">
+        <span className={styles.value} aria-live="polite">
           {size}
         </span>
         <button
           type="button"
-          className="stepper-button"
+          className={styles.step}
           onClick={() => applySize(size + 1)}
           disabled={size >= MAX_LIST_SIZE}
           aria-label="增加每组单词数"
         >
-          <Plus size={14} />
+          <Plus size={15} strokeWidth={2} />
         </button>
       </div>
-      <div className="size-presets" aria-label="预设单词数">
+
+      <div className={styles.presets} role="group" aria-label="预设每组单词数">
         {PRESETS.map((preset) => (
           <button
             key={preset}
             type="button"
-            className={`preset-button${size === preset ? " is-active" : ""}`}
+            className={styles.preset}
+            aria-pressed={size === preset}
             onClick={() => applySize(preset)}
           >
             {preset}
           </button>
         ))}
       </div>
-      {error && <span className="size-error">{error}</span>}
+
+      {error && (
+        <span className={styles.error} role="alert">
+          {error}
+        </span>
+      )}
     </div>
   );
 }

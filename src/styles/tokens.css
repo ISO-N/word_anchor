@@ -1,0 +1,110 @@
+@layer reset, base, atoms, components, page, utilities;
+
+/*
+ * 词锚 · 设计令牌
+ *
+ * 纸张 + 墨 + 单一陶土红。颜色只出现在墨线上：连线、选中、状态。
+ * 所有文字色都经过对比度核算（正文 ≥ 4.5:1），没有低于 AA 的令牌。
+ */
+
+:root {
+  color-scheme: light;
+
+  /* 纸 */
+  --paper: #f6f1e7;
+  --paper-sunk: #efe8db;
+  --slip: #fffdf8;
+
+  /* 墨 */
+  --ink: #1d2721;
+  --ink-soft: #35423a;
+  --muted: #5b645c; /* 4.7:1 on --paper */
+  --on-ink: #f6f1e7;
+
+  /* 结构线 */
+  --rule: rgba(29, 39, 33, 0.14);
+  --rule-strong: rgba(29, 39, 33, 0.28);
+
+  /* 墨线色 */
+  --accent: #a94a2a; /* 5.0:1 on --paper */
+  --accent-wash: #f2e2d6;
+  --pine: #3f6350; /* 5.9:1 */
+  --pine-wash: #e6ece5;
+  --oche: #7d5a1e; /* 5.2:1 on --oche-wash */
+  --oche-wash: #f3e9d7;
+  --clay: #9c3f31; /* 5.8:1 */
+  --clay-wash: #f4e4e0;
+
+  /* 字体：中文走系统黑体，英文词与数字走 Crimson Pro */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text",
+    "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans SC", sans-serif;
+  --font-term: var(--font-crimson), "PingFang SC", "Microsoft YaHei",
+    "Noto Sans SC", sans-serif;
+
+  /* 字阶：12px 是下限，没有 8/9/10px */
+  --t-xs: 0.75rem; /* 12 */
+  --t-sm: 0.8125rem; /* 13 */
+  --t-md: 0.9375rem; /* 15 */
+  --t-lg: 1.0625rem; /* 17 */
+  --t-xl: 1.3125rem; /* 21 */
+  --t-2xl: 1.75rem; /* 28 */
+  --t-3xl: clamp(2rem, 3.6vw, 2.5rem); /* 32–40 */
+  --t-4xl: clamp(2.5rem, 5.6vw, 4rem); /* 40–64 */
+
+  /* 圆角：只有三级 */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+
+  /* 影：只为一层抬升面 */
+  --shadow-slip: 0 1px 2px rgba(29, 39, 33, 0.06);
+  --shadow-float: 0 18px 44px rgba(29, 39, 33, 0.18);
+  /* 遮罩：浅色用墨色半透，暗色用真黑，避免暗色主题下反而变亮 */
+  --veil: color-mix(in srgb, var(--ink) 45%, transparent);
+
+  /* 动效 */
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --dur-fast: 120ms;
+  --dur: 180ms;
+
+  /* 尺寸 */
+  --header-h: 64px;
+  --readable: 68ch;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --paper: #171a17;
+  --paper-sunk: #101210;
+  --slip: #1f2320;
+
+  --ink: #ece6da;
+  --ink-soft: #cfcabe;
+  --muted: #a3aba1; /* 7.4:1 on --paper */
+  --on-ink: #171a17;
+
+  --rule: rgba(236, 230, 218, 0.14);
+  --rule-strong: rgba(236, 230, 218, 0.28);
+
+  --accent: #e08a5f; /* 6.7:1 */
+  --accent-wash: #3a2a22;
+  --pine: #8fb59b;
+  --pine-wash: #22302a;
+  --oche: #d3a866;
+  --oche-wash: #33301f;
+  --clay: #e2897a;
+  --clay-wash: #3a2622;
+
+  --shadow-slip: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-float: 0 18px 44px rgba(0, 0, 0, 0.55);
+  --veil: rgba(0, 0, 0, 0.62);
+}
+
+/* 无 JS 兜底：只有系统暗色偏好，托盘交给 data-theme 脚本 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+  }
+}

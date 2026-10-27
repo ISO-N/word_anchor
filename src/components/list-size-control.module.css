@@ -1,0 +1,101 @@
+.control {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.label {
+  color: var(--muted);
+  font-size: var(--t-xs);
+  white-space: nowrap;
+}
+
+.stepper {
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-md);
+  background: var(--slip);
+}
+
+.step {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+  color: var(--ink-soft);
+}
+
+.step:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.step:disabled {
+  color: var(--muted);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.value {
+  min-width: 28px;
+  color: var(--ink);
+  font-family: var(--font-term);
+  font-size: var(--t-lg);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.presets {
+  display: flex;
+  gap: 4px;
+}
+
+.preset {
+  min-width: 32px;
+  height: 34px;
+  padding: 0 6px;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+  color: var(--muted);
+  font-size: var(--t-xs);
+  font-variant-numeric: tabular-nums;
+  transition: color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease);
+}
+
+.preset:hover {
+  border-color: var(--rule-strong);
+  color: var(--ink);
+}
+
+.preset[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.error {
+  color: var(--clay);
+  font-size: var(--t-xs);
+}
+
+@media (pointer: coarse) {
+  .stepper {
+    height: 44px;
+  }
+
+  .step {
+    width: 42px;
+    height: 42px;
+  }
+
+  .preset {
+    min-width: 40px;
+    height: 42px;
+  }
+}
