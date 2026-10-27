@@ -1,2 +1,8 @@
 minimumReleaseAgeExclude:
   - lucide-react@1.62.0
+
+# unrs-resolver 是 eslint-config-next → eslint-import-resolver-typescript 的可选原生依赖。
+# 显式允许它的安装脚本，否则 pnpm 会以 ERR_PNPM_IGNORED_BUILDS 退出，
+# 让 CI 的 pnpm install --frozen-lockfile 失败。
+allowBuilds:
+  unrs-resolver: true
