@@ -381,7 +381,7 @@ export function PracticeSession({
           <span className="empty-state-icon">
             <Link2 size={20} strokeWidth={1.8} />
           </span>
-          <h2>这份清单还没有单词</h2>
+          <h1>这份清单还没有单词</h1>
           <p>先往词库添加单词，再回来开始练习。</p>
           <div className={styles.emptyActions}>
             <Link href="/words" className={buttonClass()}>

@@ -64,7 +64,7 @@ function MissingList({ hasWords }: { hasWords: boolean }) {
         <span className="empty-state-icon">
           <Layers3 size={20} strokeWidth={1.8} />
         </span>
-        <h2>没有找到这份清单</h2>
+        <h1>没有找到这份清单</h1>
         <p>
           {hasWords
             ? "调整每组单词数之后，清单会重新编排，编号也会随之变化。"

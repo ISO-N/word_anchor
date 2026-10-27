@@ -15,4 +15,7 @@
 
 .text {
   margin: 0;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  letter-spacing: 0;
 }
