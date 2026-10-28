@@ -2,6 +2,7 @@ import type {
   AppDatabase,
   AppSettings,
   CompletionRecord,
+  FeedbackMode,
   ListOverview,
   StudyList,
   WordRecord,
@@ -11,6 +12,7 @@ export const DATABASE_VERSION = 1 as const;
 export const DEFAULT_LIST_SIZE = 5;
 export const MIN_LIST_SIZE = 2;
 export const MAX_LIST_SIZE = 20;
+export const DEFAULT_FEEDBACK_MODE: FeedbackMode = "instant";
 
 /**
  * 所有函数都是纯函数：输入旧数据包，返回新的数据包，不做任何 I/O。
@@ -20,7 +22,10 @@ export function createEmptyDatabase(): AppDatabase {
   return {
     version: DATABASE_VERSION,
     words: [],
-    settings: { listSize: DEFAULT_LIST_SIZE },
+    settings: {
+      listSize: DEFAULT_LIST_SIZE,
+      feedbackMode: DEFAULT_FEEDBACK_MODE,
+    },
     completions: {},
   };
 }
@@ -49,7 +54,10 @@ function validateWord(term: string, meaning: string) {
 }
 
 function getSettings(db: AppDatabase): AppSettings {
-  return { listSize: db.settings.listSize };
+  return {
+    listSize: db.settings.listSize,
+    feedbackMode: db.settings.feedbackMode,
+  };
 }
 
 export function findDuplicateTerm(
@@ -143,7 +151,18 @@ export function setListSize(db: AppDatabase, listSizeValue: unknown): AppDatabas
     );
   }
 
-  return { ...db, settings: { listSize } };
+  return { ...db, settings: { ...db.settings, listSize } };
+}
+
+export function setFeedbackMode(
+  db: AppDatabase,
+  value: unknown,
+): AppDatabase {
+  if (value !== "instant" && value !== "manual") {
+    throw new Error("反馈方式无效");
+  }
+
+  return { ...db, settings: { ...db.settings, feedbackMode: value } };
 }
 
 /**

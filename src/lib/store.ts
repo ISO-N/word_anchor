@@ -3,11 +3,12 @@ import {
   createEmptyDatabase,
   createWord,
   deleteWord,
+  setFeedbackMode,
   setListSize,
   updateWord,
 } from "@/lib/data";
 import { normalizeDatabase } from "@/lib/backup";
-import type { AppDatabase } from "@/lib/types";
+import type { AppDatabase, FeedbackMode } from "@/lib/types";
 
 const DATABASE_NAME = "word-anchor";
 const STORE_NAME = "state";
@@ -230,6 +231,10 @@ export function removeWord(id: number): void {
 
 export function updateListSize(listSize: number): void {
   commit(setListSize(requireDatabase(), listSize));
+}
+
+export function updateFeedbackMode(mode: FeedbackMode): void {
+  commit(setFeedbackMode(requireDatabase(), mode));
 }
 
 export function markListComplete(

@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  CheckCheck,
   Link2,
   RotateCcw,
   Sparkles,
@@ -21,17 +22,23 @@ import {
 } from "react";
 import { buttonClass } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { FeedbackModeControl } from "@/components/feedback-mode-control";
 import { curvePath } from "@/lib/geometry";
 import { formatClock } from "@/lib/format";
 import { markListComplete } from "@/lib/store";
-import type { WordRecord } from "@/lib/types";
+import type { FeedbackMode, WordRecord } from "@/lib/types";
 import styles from "./practice-session.module.css";
 
 type Side = "term" | "meaning";
+type Status = "correct" | "wrong" | "pending";
 type NodeRef = { side: Side; id: number };
 type Point = { x: number; y: number };
 type Pairs = Record<number, number>;
-type Feedback = { type: "correct" | "wrong"; message: string; key: number };
+type Feedback = {
+  type: "correct" | "wrong" | "info";
+  message: string;
+  key: number;
+};
 type DragStart = {
   source: NodeRef;
   startX: number;
@@ -44,7 +51,13 @@ type PracticeSessionProps = {
   isPartial: boolean;
   alreadyCompleted: boolean;
   nextIndex: number | null;
+  feedbackMode: FeedbackMode;
 };
+
+/** 判定标记用「单词:释义」作键：重新连线会换键，旧结论自然失效。 */
+function pairKey(termId: number, meaningId: number): string {
+  return `${termId}:${meaningId}`;
+}
 
 function shuffle<T>(items: T[]): T[] {
   const result = [...items];
@@ -61,6 +74,7 @@ export function PracticeSession({
   isPartial,
   alreadyCompleted,
   nextIndex,
+  feedbackMode,
 }: PracticeSessionProps) {
   const nodeKey = (side: Side, id: number) => `${side}-${id}`;
   const termLabelId = useId();
@@ -69,6 +83,7 @@ export function PracticeSession({
   const [terms, setTerms] = useState<WordRecord[]>([]);
   const [meanings, setMeanings] = useState<WordRecord[]>([]);
   const [pairs, setPairs] = useState<Pairs>({});
+  const [judgedPairs, setJudgedPairs] = useState<Record<string, true>>({});
   const [selected, setSelected] = useState<NodeRef | null>(null);
   const [dragStart, setDragStart] = useState<DragStart | null>(null);
   const [dragPoint, setDragPoint] = useState<Point | null>(null);
@@ -93,6 +108,7 @@ export function PracticeSession({
 
   const resetSession = useCallback(() => {
     setPairs({});
+    setJudgedPairs({});
     setSelected(null);
     setDragStart(null);
     setDragPoint(null);
@@ -127,6 +143,16 @@ export function PracticeSession({
 
     return () => window.clearInterval(timer);
   }, [completed, session]);
+
+  const appliedModeRef = useRef<FeedbackMode>(feedbackMode);
+
+  useEffect(() => {
+    if (appliedModeRef.current === feedbackMode) return;
+    appliedModeRef.current = feedbackMode;
+    /* 切换方式不重置本轮：保留连线、用时与统计，只清空判定结论 */
+    setJudgedPairs({});
+    setFeedback(null);
+  }, [feedbackMode]);
 
   useEffect(() => {
     return () => {
@@ -192,8 +218,24 @@ export function PracticeSession({
         return next;
       });
 
+      /* 动过的配对必须重新判定：清掉涉及这个单词或这条释义的旧结论 */
+      setJudgedPairs((current) => {
+        const next: Record<string, true> = {};
+        Object.keys(current).forEach((key) => {
+          const [judgedTerm, judgedMeaning] = key.split(":").map(Number);
+          if (judgedTerm === termId || judgedMeaning === meaningId) return;
+          next[key] = true;
+        });
+        return next;
+      });
+
       setAttempts((current) => current + 1);
       setSelected(null);
+
+      if (feedbackMode === "manual") {
+        showFeedback("info", "已连接，全部连好后点『判定』");
+        return;
+      }
 
       if (termId === meaningId) {
         showFeedback("correct", "锚住了，这一对匹配正确");
@@ -202,7 +244,7 @@ export function PracticeSession({
         showFeedback("wrong", "再想想，这两个词还不匹配");
       }
     },
-    [showFeedback],
+    [feedbackMode, showFeedback],
   );
 
   const handleNodeClick = (side: Side, id: number) => {
@@ -313,13 +355,67 @@ export function PracticeSession({
   ).length;
   const connectedCount = pairEntries.length;
   const total = words.length;
+  const displayedCount =
+    feedbackMode === "instant" ? correctCount : connectedCount;
+  const scoreLabel = feedbackMode === "instant" ? "已正确连接" : "已连接";
+
+  const handleJudge = useCallback(() => {
+    if (feedbackMode !== "manual" || completed) return;
+    if (total === 0 || connectedCount !== total) return;
+    /* 刚判定过的同一组连线不再重复计错，改动过任一条线才允许再次判定 */
+    if (
+      pairEntries.every(({ termId, meaningId }) =>
+        Boolean(judgedPairs[pairKey(termId, meaningId)]),
+      )
+    ) {
+      return;
+    }
+
+    const judged: Record<string, true> = {};
+    let errors = 0;
+
+    pairEntries.forEach(({ termId, meaningId }) => {
+      judged[pairKey(termId, meaningId)] = true;
+      if (termId !== meaningId) errors += 1;
+    });
+
+    setJudgedPairs(judged);
+
+    if (errors === 0) {
+      showFeedback("correct", "判定通过，全部连对");
+      return;
+    }
+
+    setMistakes((current) => current + errors);
+    showFeedback("wrong", `还有 ${errors} 对没连对，改好后再次判定`);
+  }, [
+    completed,
+    connectedCount,
+    feedbackMode,
+    judgedPairs,
+    pairEntries,
+    showFeedback,
+    total,
+  ]);
+
+  const allPairsCorrect = words.every((word) => pairs[word.id] === word.id);
+  const allCorrectPairsJudged = words.every((word) =>
+    Boolean(judgedPairs[pairKey(word.id, word.id)]),
+  );
+  /* 当前这组连线已经全部判定过，再点「判定」不会有新信息 */
+  const hasUnjudgedPair = pairEntries.some(
+    ({ termId, meaningId }) => !judgedPairs[pairKey(termId, meaningId)],
+  );
+  /* 即时模式连对即收束；手动模式要等「判定」确认全对 */
+  const revealedAllCorrect =
+    total > 0 &&
+    allPairsCorrect &&
+    (feedbackMode === "instant" || allCorrectPairsJudged);
 
   useEffect(() => {
-    if (completed || total === 0) return;
+    if (completed || !revealedAllCorrect) return;
     /* 一旦完赛过，关闭摘要后不再自动重开 */
     if (completionSentRef.current) return;
-    const allCorrect = words.every((word) => pairs[word.id] === word.id);
-    if (!allCorrect) return;
 
     const timer = setTimeout(() => {
       if (completionSentRef.current) return;
@@ -337,7 +433,7 @@ export function PracticeSession({
     }, 620);
 
     return () => clearTimeout(timer);
-  }, [pairs, words, completed, total, attempts, mistakes, listIndex]);
+  }, [revealedAllCorrect, completed, attempts, mistakes, listIndex]);
 
   const beginDrag = (
     event: React.PointerEvent<HTMLButtonElement>,
@@ -352,22 +448,31 @@ export function PracticeSession({
     });
   };
 
-  const getStatus = (side: Side, id: number) => {
+  const pairStatus = (termId: number, meaningId: number): Status => {
+    if (
+      feedbackMode === "instant" ||
+      judgedPairs[pairKey(termId, meaningId)]
+    ) {
+      return termId === meaningId ? "correct" : "wrong";
+    }
+    return "pending";
+  };
+
+  const getStatus = (side: Side, id: number): Status | null => {
     if (side === "term") {
       const partner = pairs[id];
-      if (partner === undefined) return null;
-      return partner === id ? "correct" : "wrong";
+      return partner === undefined ? null : pairStatus(id, partner);
     }
 
     const partner = meaningPartner.get(id);
-    if (partner === undefined) return null;
-    return partner === id ? "correct" : "wrong";
+    return partner === undefined ? null : pairStatus(partner, id);
   };
 
   const statusText = (side: Side, id: number) => {
     const status = getStatus(side, id);
     if (status === "correct") return "已正确连接";
     if (status === "wrong") return "连接错误";
+    if (status === "pending") return "已连接，待判定";
     return "尚未连接";
   };
 
@@ -420,6 +525,7 @@ export function PracticeSession({
             用时
             <span className={styles.timerValue}>{formatClock(elapsed)}</span>
           </span>
+          <FeedbackModeControl variant="compact" />
           <button
             type="button"
             className={buttonClass({ variant: "ghost", size: "sm" })}
@@ -435,15 +541,17 @@ export function PracticeSession({
         <div>
           <h1 className={styles.title}>把单词和释义连起来</h1>
           <p className={styles.subtitle}>
-            拖动卡片边缘的圆点拉出连线，或先点单词、再点释义。
+            {feedbackMode === "instant"
+              ? "拖动卡片边缘的圆点拉出连线，或先点单词、再点释义。"
+              : "拖动卡片边缘的圆点拉出连线，或先点单词、再点释义；全部连好后点『判定』一次看清结果。"}
           </p>
         </div>
         <p className={styles.score}>
           <span className={styles.scoreValue}>
-            {correctCount}
+            {displayedCount}
             <span className={styles.scoreTotal}> / {total}</span>
           </span>
-          <span className={styles.scoreLabel}>已正确连接</span>
+          <span className={styles.scoreLabel}>{scoreLabel}</span>
         </p>
       </div>
 
@@ -475,13 +583,17 @@ export function PracticeSession({
               const start = points[nodeKey("term", termId)];
               const end = points[nodeKey("meaning", meaningId)];
               if (!start || !end) return null;
-              const correct = termId === meaningId;
+              const status = pairStatus(termId, meaningId);
               return (
                 <path
                   key={`${termId}-${meaningId}`}
                   d={curvePath(start, end)}
                   className={`${styles.line} ${
-                    correct ? styles.lineCorrect : styles.lineWrong
+                    status === "correct"
+                      ? styles.lineCorrect
+                      : status === "wrong"
+                        ? styles.lineWrong
+                        : styles.linePending
                   }`}
                 />
               );
@@ -646,18 +758,38 @@ export function PracticeSession({
               <>
                 {feedback.type === "correct" ? (
                   <Check size={14} strokeWidth={2.4} />
-                ) : (
+                ) : feedback.type === "wrong" ? (
                   <X size={14} strokeWidth={2.4} />
+                ) : (
+                  <Link2 size={14} strokeWidth={1.8} />
                 )}
                 {feedback.message}
               </>
             ) : (
               <>
                 <Sparkles size={14} strokeWidth={1.8} />
-                连接正确的词义，完成后会自动收束
+                {feedbackMode === "manual"
+                  ? connectedCount < total
+                    ? `还差 ${total - connectedCount} 对，连完后点『判定』`
+                    : hasUnjudgedPair
+                      ? "全部连好，点『判定』查看结果"
+                      : "改好陶土色的连线，再点『判定』"
+                  : "连接正确的词义，完成后会自动收束"}
               </>
             )}
           </div>
+
+          {feedbackMode === "manual" && (
+            <button
+              type="button"
+              className={buttonClass({ size: "sm" })}
+              onClick={handleJudge}
+              disabled={connectedCount !== total || completed || !hasUnjudgedPair}
+            >
+              <CheckCheck size={15} strokeWidth={2} />
+              判定
+            </button>
+          )}
 
           <button
             type="button"
@@ -665,7 +797,11 @@ export function PracticeSession({
             onClick={() => {
               setPairs({});
               setSelected(null);
-              showFeedback("correct", "已清空连线，再试一次");
+              setJudgedPairs({});
+              showFeedback(
+                feedbackMode === "instant" ? "correct" : "info",
+                "已清空连线，再试一次",
+              );
             }}
             disabled={connectedCount === 0}
           >

@@ -53,6 +53,7 @@ function PracticeView() {
       isPartial={list.isPartial}
       alreadyCompleted={list.status === "completed"}
       nextIndex={nextList?.index ?? null}
+      feedbackMode={data.settings.feedbackMode}
     />
   );
 }

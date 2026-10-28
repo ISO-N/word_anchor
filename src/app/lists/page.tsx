@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, Layers3, Plus } from "lucide-react";
 import { DataPlaceholder } from "@/components/data-placeholder";
+import { FeedbackModeControl } from "@/components/feedback-mode-control";
 import { ListRow } from "@/components/list-row";
 import { ListSizeControl } from "@/components/list-size-control";
 import { buttonClass } from "@/components/ui/button";
@@ -65,7 +66,10 @@ export default function ListsPage() {
             {progress}%
           </span>
         </div>
-        <ListSizeControl />
+        <div className={styles.settings}>
+          <ListSizeControl />
+          <FeedbackModeControl />
+        </div>
       </section>
 
       {words.length === 0 ? (

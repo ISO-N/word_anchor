@@ -59,7 +59,9 @@
   display: flex;
   margin-inline-start: auto;
   align-items: center;
-  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px 10px;
 }
 
 .timer {
@@ -214,6 +216,11 @@
   stroke: var(--clay);
   stroke-dasharray: 5 4;
   opacity: 0.6;
+}
+
+.linePending {
+  stroke: color-mix(in srgb, var(--ink-soft) 50%, transparent);
+  stroke-width: 1.3;
 }
 
 .lineDragging {

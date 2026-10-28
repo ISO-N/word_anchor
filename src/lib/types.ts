@@ -20,8 +20,11 @@ export type StudyList = {
   words: WordRecord[];
 };
 
+export type FeedbackMode = "instant" | "manual";
+
 export type AppSettings = {
   listSize: number;
+  feedbackMode: FeedbackMode;
 };
 
 export type ListOverview = {

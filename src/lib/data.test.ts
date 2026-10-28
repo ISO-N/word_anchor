@@ -6,6 +6,7 @@ import {
   deleteWord,
   getListOverview,
   getStudyList,
+  setFeedbackMode,
   setListSize,
   updateWord,
 } from "@/lib/data";
@@ -87,6 +88,28 @@ describe("清单编排", () => {
     expect(getStudyList(db, 1)?.index).toBe(1);
     expect(getStudyList(db, 3)).toBeNull();
     expect(getStudyList(db, 0)).toBeNull();
+  });
+});
+
+describe("反馈方式设置", () => {
+  it("默认即时反馈", () => {
+    expect(createEmptyDatabase().settings.feedbackMode).toBe("instant");
+    expect(getListOverview(seed(3)).settings.feedbackMode).toBe("instant");
+  });
+
+  it("切换为手动判定，且不会丢掉每组单词数", () => {
+    const sized = setListSize(seed(3), 8);
+    const manual = setFeedbackMode(sized, "manual");
+
+    expect(manual.settings.feedbackMode).toBe("manual");
+    expect(manual.settings.listSize).toBe(8);
+    expect(setListSize(manual, 4).settings.feedbackMode).toBe("manual");
+  });
+
+  it("非法反馈方式会被拒绝", () => {
+    expect(() => setFeedbackMode(createEmptyDatabase(), "auto")).toThrow(
+      "反馈方式无效",
+    );
   });
 });
 

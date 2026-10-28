@@ -1,5 +1,6 @@
 import {
   DATABASE_VERSION,
+  DEFAULT_FEEDBACK_MODE,
   DEFAULT_LIST_SIZE,
   MAX_LIST_SIZE,
   MIN_LIST_SIZE,
@@ -7,6 +8,7 @@ import {
 import type {
   AppDatabase,
   CompletionRecord,
+  FeedbackMode,
   WordRecord,
 } from "@/lib/types";
 
@@ -61,6 +63,10 @@ function toListSize(value: unknown): number {
   return listSize;
 }
 
+function toFeedbackMode(value: unknown): FeedbackMode {
+  return value === "manual" ? "manual" : DEFAULT_FEEDBACK_MODE;
+}
+
 /**
  * 宽松解析：用于从 IndexedDB 读回数据（容忍旧版本/损坏字段），
  * 无法识别时返回 null，绝不抛错。
@@ -86,7 +92,10 @@ export function normalizeDatabase(value: unknown): AppDatabase | null {
   return {
     version: DATABASE_VERSION,
     words,
-    settings: { listSize: toListSize(settings.listSize) },
+    settings: {
+      listSize: toListSize(settings.listSize),
+      feedbackMode: toFeedbackMode(settings.feedbackMode),
+    },
     completions,
   };
 }

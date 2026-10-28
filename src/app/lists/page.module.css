@@ -38,6 +38,13 @@
   flex: 1;
 }
 
+.settings {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+
 .fifo {
   display: flex;
   margin: 24px 0 18px;
