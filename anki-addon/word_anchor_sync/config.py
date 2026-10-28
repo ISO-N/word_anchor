@@ -12,6 +12,19 @@ DEFAULTS = {
     "meaning_field": "",
     "max_deep_link_chars": 1600,
     "capture_enabled": True,
+    # 字段内容里自带的标签，入词库前去掉（选中的字段名会自动加入名单）
+    "strip_term_prefixes": ["单词", "生词", "Word", "Term"],
+    "strip_meaning_prefixes": [
+        "释义",
+        "中文释义",
+        "英文释义",
+        "词义",
+        "意思",
+        "含义",
+        "Meaning",
+        "Definition",
+        "Translation",
+    ],
 }
 
 

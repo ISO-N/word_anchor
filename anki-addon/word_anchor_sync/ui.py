@@ -83,15 +83,32 @@ def setup_menu() -> None:
 # ---------------------------------------------------------------- 发送
 
 
-def _entries(items) -> list:
+def _entries(items, conf: dict) -> list:
+    """队列里的原始文本 → 真正要发送的 term / meaning（顺手洗掉字段自带的标签）。"""
+    term_field = str(conf.get("term_field", ""))
+    meaning_field = str(conf.get("meaning_field", ""))
+    term_prefixes = conf.get("strip_term_prefixes") or capture.DEFAULT_TERM_PREFIXES
+    meaning_prefixes = (
+        conf.get("strip_meaning_prefixes") or capture.DEFAULT_MEANING_PREFIXES
+    )
+
     return [
-        {"term": item["term"], "meaning": item.get("meaning", "")} for item in items
+        capture.clean_entry(
+            item["term"],
+            item.get("meaning", ""),
+            term_field,
+            meaning_field,
+            term_prefixes,
+            meaning_prefixes,
+        )
+        for item in items
     ]
 
 
-def _write_clipboard(entries) -> None:
+def _write_clipboard(entries, raw_terms) -> None:
     QApplication.clipboard().setText(wire.clipboard_envelope(entries))
-    queue_store.mark_sent([entry["term"] for entry in entries])
+    # 用队列里的原始 term 标记已发送：清洗可能改写过 term（如「单词：lucid」）
+    queue_store.mark_sent(raw_terms)
 
 
 def send_via_clipboard() -> None:
@@ -101,7 +118,7 @@ def send_via_clipboard() -> None:
         return
 
     try:
-        _write_clipboard(_entries(items))
+        _write_clipboard(_entries(items, config.load()), [item["term"] for item in items])
     except Exception:
         log.log_error("复制到剪贴板失败")
         showWarning("复制到剪贴板失败，详情见插件的 error.log。")
@@ -124,7 +141,8 @@ def send_via_link() -> None:
         showInfo("队列里没有待发送的单词。")
         return
 
-    entries = _entries(items)
+    raw_terms = [item["term"] for item in items]
+    entries = _entries(items, conf)
     try:
         link = wire.deep_link(str(conf["site_url"]), entries)
     except Exception:
@@ -135,7 +153,7 @@ def send_via_link() -> None:
     limit = int(conf.get("max_deep_link_chars") or 0) or wire.MAX_PAYLOAD_CHARS
     if len(link) > limit:
         try:
-            _write_clipboard(entries)
+            _write_clipboard(entries, raw_terms)
         except Exception:
             log.log_error("链接过长，降级到剪贴板时失败")
             showWarning("链接太长，复制到剪贴板也失败了。")
@@ -153,7 +171,7 @@ def send_via_link() -> None:
         )
         return
 
-    queue_store.mark_sent([entry["term"] for entry in entries])
+    queue_store.mark_sent(raw_terms)
     tooltip("已把 {} 个单词发到词锚".format(len(entries)), period=2000)
 
 
@@ -161,8 +179,9 @@ def send_via_link() -> None:
 
 
 class PreviewDialog(QDialog):
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent=None, conf=None) -> None:
         super().__init__(parent)
+        self.conf = conf if conf is not None else config.load()
         self.setWindowTitle("词锚 · 待收录队列")
         self.resize(680, 480)
 
@@ -194,11 +213,13 @@ class PreviewDialog(QDialog):
             )
             return
 
+        entries = _entries(items, self.conf)
+
         lines = []
-        for index, item in enumerate(items, 1):
+        for index, (item, entry) in enumerate(zip(items, entries), 1):
             state = "已发送" if item.get("sentAt") else "待发送"
-            meaning = str(item.get("meaning", "")).replace("\n", " / ")
-            lines.append("{:02d}. [{}] {}".format(index, state, item["term"]))
+            meaning = entry["meaning"].replace("\n", " / ")
+            lines.append("{:02d}. [{}] {}".format(index, state, entry["term"]))
             lines.append("    {}".format(meaning))
             lines.append("    抓取于 {}".format(item.get("capturedAt", "")))
             lines.append("")
@@ -225,7 +246,7 @@ class PreviewDialog(QDialog):
 
 
 def open_preview() -> None:
-    dialog = PreviewDialog(mw)
+    dialog = PreviewDialog(mw, config.load())
     dialog.exec()
 
 
@@ -287,7 +308,8 @@ class SettingsDialog(QDialog):
 
         hint = QLabel(
             "字段留空表示自动取笔记类型的第 1、2 个字段。"
-            "不确定选哪个时，先用菜单里的「测试：预览当前卡片」看一眼。",
+            "不确定选哪个时，先用菜单里的「测试：预览当前卡片」看一眼。\n"
+            "释义开头带「释义：」这类标签时会自动去掉（可在配置里改）。",
             self,
         )
         hint.setWordWrap(True)

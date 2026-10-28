@@ -35,6 +35,8 @@ def _on_answer(reviewer, card, ease) -> None:
             card,
             str(conf.get("term_field", "")),
             str(conf.get("meaning_field", "")),
+            conf.get("strip_term_prefixes") or capture.DEFAULT_TERM_PREFIXES,
+            conf.get("strip_meaning_prefixes") or capture.DEFAULT_MEANING_PREFIXES,
         )
         if entry is None:
             return

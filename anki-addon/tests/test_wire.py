@@ -139,5 +139,69 @@ class CaptureTest(unittest.TestCase):
         self.assertIsNone(capture.entry_from_card(card, "", ""))
 
 
+class LabelPrefixTest(unittest.TestCase):
+    """字段内容里的「释义：」这类标签不能进词库。"""
+
+    def test_separators_are_handled(self):
+        labels = capture.label_list("", ["释义"])
+
+        for raw in ("释义：意外发现", "释义: 意外发现", "释义 意外发现", "释义\n意外发现"):
+            self.assertEqual(capture.strip_label_prefix(raw, labels), "意外发现")
+
+    def test_field_name_is_a_label(self):
+        self.assertEqual(
+            capture.strip_label_prefix("Meaning: obvious", capture.label_list("Meaning", [])),
+            "obvious",
+        )
+        self.assertEqual(
+            capture.strip_label_prefix("释义：清晰", capture.label_list("释义", [])),
+            "清晰",
+        )
+
+    def test_bracketed_labels_are_handled(self):
+        self.assertEqual(
+            capture.strip_label_prefix("【释义】清晰易懂", capture.label_list("", ["释义"])),
+            "清晰易懂",
+        )
+        self.assertEqual(
+            capture.strip_label_prefix(
+                "[Meaning] clear", capture.label_list("", ["Meaning"])
+            ),
+            "clear",
+        )
+
+    def test_longer_label_wins(self):
+        labels = capture.label_list("", ["释义", "中文释义"])
+
+        self.assertEqual(capture.strip_label_prefix("中文释义：清晰", labels), "清晰")
+
+    def test_real_content_is_not_mangled(self):
+        labels = capture.label_list("释义", ["释义"])
+
+        self.assertEqual(capture.strip_label_prefix("释义学导论", labels), "释义学导论")
+        self.assertEqual(capture.strip_label_prefix("释义", labels), "释义")
+        self.assertEqual(
+            capture.strip_label_prefix("并不是释义：这句话", labels), "并不是释义：这句话"
+        )
+
+    def test_html_label_is_stripped_too(self):
+        labels = capture.label_list("释义", [])
+
+        self.assertEqual(capture.clean_meaning("<b>释义</b>：清晰易懂", labels), "清晰易懂")
+
+    def test_entry_from_card_strips_both_labels(self):
+        card = FakeCard({"单词": "单词：lucid", "释义": "释义：清晰易懂的"})
+
+        entry = capture.entry_from_card(card, "单词", "释义")
+
+        self.assertEqual(entry["term"], "lucid")
+        self.assertEqual(entry["meaning"], "清晰易懂的")
+
+    def test_old_queue_values_are_cleaned_before_send(self):
+        cleaned = capture.clean_entry("单词：lucid", "释义：清晰易懂的", "单词", "释义")
+
+        self.assertEqual(cleaned, {"term": "lucid", "meaning": "清晰易懂的"})
+
+
 if __name__ == "__main__":
     unittest.main()
