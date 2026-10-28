@@ -3,7 +3,10 @@ import type {
   AppSettings,
   CompletionRecord,
   FeedbackMode,
+  IntakeSummary,
   ListOverview,
+  ParsedIntake,
+  RejectedEntry,
   StudyList,
   WordRecord,
 } from "@/lib/types";
@@ -13,6 +16,8 @@ export const DEFAULT_LIST_SIZE = 5;
 export const MIN_LIST_SIZE = 2;
 export const MAX_LIST_SIZE = 20;
 export const DEFAULT_FEEDBACK_MODE: FeedbackMode = "instant";
+export const MAX_TERM_LENGTH = 80;
+export const MAX_MEANING_LENGTH = 300;
 
 /**
  * 所有函数都是纯函数：输入旧数据包，返回新的数据包，不做任何 I/O。
@@ -38,18 +43,22 @@ function normalizeMeaning(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function truncate(value: string, max: number): string {
+  return value.length > max ? value.slice(0, max) : value;
+}
+
 function validateWord(term: string, meaning: string) {
   if (!term) {
     throw new Error("请输入单词");
   }
-  if (term.length > 80) {
-    throw new Error("单词不能超过 80 个字符");
+  if (term.length > MAX_TERM_LENGTH) {
+    throw new Error(`单词不能超过 ${MAX_TERM_LENGTH} 个字符`);
   }
   if (!meaning) {
     throw new Error("请输入中文释义");
   }
-  if (meaning.length > 300) {
-    throw new Error("释义不能超过 300 个字符");
+  if (meaning.length > MAX_MEANING_LENGTH) {
+    throw new Error(`释义不能超过 ${MAX_MEANING_LENGTH} 个字符`);
   }
 }
 
@@ -99,6 +108,64 @@ export function createWord(
   };
 
   return { ...db, words: [...db.words, word] };
+}
+
+/**
+ * 批量收录（Anki 插件 / 粘贴）：容忍脏数据，不抛错。
+ *
+ * - 超长的单词与释义按边界截断，而不是丢掉整条
+ * - 库内已有（忽略大小写）或本批前面已接受的同名单词计入 duplicates，保留库里原有释义
+ * - 其余问题（空单词、空释义、解析阶段就不认识的行）归入 rejected，界面报数
+ * - 一批只取一次 `now`，追加顺序就是抓取/发送顺序
+ */
+export function applyIntake(
+  db: AppDatabase,
+  intake: ParsedIntake,
+): { db: AppDatabase; summary: IntakeSummary } {
+  const now = new Date().toISOString();
+  const seen = new Set(db.words.map((word) => word.term.toLocaleLowerCase()));
+  const added: WordRecord[] = [];
+  const duplicates: string[] = [];
+  const rejected: RejectedEntry[] = [...intake.rejected];
+
+  intake.entries.forEach((entry) => {
+    const term = truncate(normalizeTerm(entry.term), MAX_TERM_LENGTH);
+    const meaning = truncate(
+      normalizeMeaning(entry.meaning),
+      MAX_MEANING_LENGTH,
+    );
+
+    if (!term) {
+      rejected.push({ term: normalizeTerm(entry.term), reason: "单词为空" });
+      return;
+    }
+    if (!meaning) {
+      rejected.push({ term, reason: "释义为空" });
+      return;
+    }
+
+    const key = term.toLocaleLowerCase();
+    if (seen.has(key)) {
+      duplicates.push(term);
+      return;
+    }
+
+    seen.add(key);
+    added.push({
+      id: nextWordId(db.words) + added.length,
+      term,
+      meaning,
+      createdAt: now,
+      updatedAt: now,
+    });
+  });
+
+  const summary: IntakeSummary = { added, duplicates, rejected };
+  if (added.length === 0) {
+    return { db, summary };
+  }
+
+  return { db: { ...db, words: [...db.words, ...added] }, summary };
 }
 
 export function updateWord(

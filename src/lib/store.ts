@@ -1,4 +1,5 @@
 import {
+  applyIntake,
   completeStudyList,
   createEmptyDatabase,
   createWord,
@@ -8,7 +9,12 @@ import {
   updateWord,
 } from "@/lib/data";
 import { normalizeDatabase } from "@/lib/backup";
-import type { AppDatabase, FeedbackMode } from "@/lib/types";
+import type {
+  AppDatabase,
+  FeedbackMode,
+  IntakeSummary,
+  ParsedIntake,
+} from "@/lib/types";
 
 const DATABASE_NAME = "word-anchor";
 const STORE_NAME = "state";
@@ -227,6 +233,19 @@ export function editWord(id: number, term: unknown, meaning: unknown): void {
 
 export function removeWord(id: number): void {
   commit(deleteWord(requireDatabase(), id));
+}
+
+/**
+ * 批量收录：一条都不新增时不写盘、不广播，免得无意义地扰动其他标签页。
+ */
+export function intakeWords(intake: ParsedIntake): IntakeSummary {
+  const result = applyIntake(requireDatabase(), intake);
+
+  if (result.summary.added.length > 0) {
+    commit(result.db);
+  }
+
+  return result.summary;
 }
 
 export function updateListSize(listSize: number): void {

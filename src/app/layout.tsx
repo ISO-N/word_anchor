@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import { AnkiIntake } from "@/components/anki-intake";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { StorageNotice } from "@/components/storage-notice";
@@ -56,6 +57,7 @@ export default function RootLayout({
         <SiteHeader />
         <main className="site-main" id="main-content" tabIndex={-1}>
           <StorageNotice />
+          <AnkiIntake />
           {children}
         </main>
         <SiteFooter />

@@ -13,6 +13,20 @@
 - **主题**：跟随系统 / 浅色 / 深色三态切换，偏好存在 `localStorage`，首帧即生效（无闪白）。
 - **本地存储**：数据存放在浏览器的 IndexedDB，可随时导出／导入 JSON 备份。
 
+## 从 Anki 自动收录
+
+复习时按「重来」的单词，可以不再手抄——配套的 Anki 插件会把它们送进词锚。
+详见 [`anki-addon/README.md`](anki-addon/README.md)。
+
+1. **装插件**：把 `anki-addon/word_anchor_sync/` 复制到 Anki 的 `addons21/`，重启。
+2. **一次性设置**：**工具 → 词锚 Word Anchor → 设置…**，填站点地址与单词／释义字段。
+3. **开始收录**：复习时按「重来」就会进队列；要学习时选
+   - **打开词锚收录** → 打开 `站点/#inbox=<payload>`，页面自动入库、报数，payload 随即从地址栏清掉；
+   - 或 **复制到剪贴板** → 到「单词库」页的「从 Anki 快速收录」点一下「从剪贴板收录」。
+
+两条通道都只在本机完成：剪贴板不联网，深链的 payload 在 URL fragment 里，**不会发送给任何服务器**。
+同一个词不会重复入库（按单词去重，保留原有释义）。
+
 ## 启动
 
 ```bash
@@ -33,6 +47,8 @@ pnpm lint         # eslint（flat config，eslint-config-next）
 pnpm test         # vitest（纯函数 + 对话框/主题组件）
 pnpm check:css    # 守卫：TSX 里用到的类名必须在样式表中存在
 pnpm check:unused # 咨询：列出没被引用的类与设计令牌（不阻塞）
+
+python -m unittest discover anki-addon/tests   # Anki 插件的线格式与字段清洗
 ```
 
 `pnpm check:css` 是为了防止「用了但没写」的样式类——首页空态曾经因为 `.empty-card`
@@ -43,6 +59,7 @@ pnpm check:unused # 咨询：列出没被引用的类与设计令牌（不阻塞
 - 词库、每组数量、清单完成记录都在浏览器的 IndexedDB（库名 `word-anchor`）里，**不会上传到任何地方**。
 - 主题偏好是唯一存放在 `localStorage`（键 `word-anchor:theme`）的数据，因为它必须在首帧之前同步读出。
 - 数据按浏览器隔离：换浏览器、换设备、清理站点数据后都看不到原来的词库。
+- Anki 插件送来的单词也走同一条路：从剪贴板或 URL fragment 读进浏览器，**不经过任何服务器**。
 - 「单词库」页底部提供 **导出备份 / 导入备份 / 清空数据**，导出文件是纯 JSON，可放进 iCloud、坚果云或 git 里长期保存。
 
 ## 技术栈
@@ -110,3 +127,19 @@ src/
 > 清单编号与分组会在词库或每组数量变化后重新计算，历史完成记录以「清单包含的单词 ID」作为签名关联；当分组变化时，旧进度可能不再显示。
 >
 > 静态导出无法为任意清单编号预生成页面，因此练习页使用查询参数：`/practice/?list=<编号>`。
+
+## Anki 插件目录
+
+```text
+anki-addon/
+├── README.md                 # 安装、设置、故障排查
+├── build.py                  # 打包成 dist/word-anchor-sync.ankiaddon
+├── tests/test_wire.py        # 线格式与字段清洗（stdlib unittest）
+└── word_anchor_sync/
+    ├── __init__.py           # reviewer_did_answer_card 钩子
+    ├── wire.py               # 线格式 v1（与 src/lib/intake.ts 一一对应）
+    ├── capture.py            # HTML 清洗、字段映射
+    ├── queue_store.py        # user_files/queue.json，原子写盘
+    ├── ui.py                 # 菜单、设置、预览、两条发送通道
+    └── config.py / log.py
+```

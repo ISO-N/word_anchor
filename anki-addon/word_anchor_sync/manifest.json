@@ -1,0 +1,9 @@
+{
+  "name": "词锚同步 Word Anchor Sync",
+  "package": "word_anchor_sync",
+  "mod": 1755000000,
+  "min_point_version": 50,
+  "max_point_version": -1,
+  "branch_index": 0,
+  "disabled": false
+}

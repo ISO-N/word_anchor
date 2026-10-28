@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyIntake,
   completeStudyList,
   createEmptyDatabase,
   createWord,
@@ -240,5 +241,128 @@ describe("单词校验", () => {
     expect(removed.words).toHaveLength(5);
     expect(lists).toHaveLength(1);
     expect(lists[0].words[0].term).toBe(TERMS[1]);
+  });
+});
+
+describe("批量收录", () => {
+  it("按发送顺序接在词库末尾，id 接着递增", () => {
+    const before = seed(2);
+    const { db, summary } = applyIntake(before, {
+      entries: [
+        { term: "lucid", meaning: "清晰易懂的" },
+        { term: "candid", meaning: "坦率的" },
+      ],
+      rejected: [],
+    });
+
+    expect(summary.added.map((word) => word.term)).toEqual(["lucid", "candid"]);
+    expect(db.words.map((word) => word.term)).toEqual([
+      TERMS[0],
+      TERMS[1],
+      "lucid",
+      "candid",
+    ]);
+    expect(db.words.map((word) => word.id)).toEqual([1, 2, 3, 4]);
+    expect(summary.duplicates).toEqual([]);
+    expect(summary.rejected).toEqual([]);
+  });
+
+  it("已在词库中的词跳过，保留原有释义", () => {
+    const before = createWord(createEmptyDatabase(), "Serendipity", "旧释义");
+    const { db, summary } = applyIntake(before, {
+      entries: [{ term: "serendipity", meaning: "新释义" }],
+      rejected: [],
+    });
+
+    expect(summary.added).toEqual([]);
+    expect(summary.duplicates).toEqual(["serendipity"]);
+    expect(db).toBe(before);
+    expect(db.words[0].meaning).toBe("旧释义");
+  });
+
+  it("同一批里的重复只收第一条", () => {
+    const { db, summary } = applyIntake(createEmptyDatabase(), {
+      entries: [
+        { term: "Lucid", meaning: "清晰易懂的" },
+        { term: "lucid", meaning: "另一个释义" },
+      ],
+      rejected: [],
+    });
+
+    expect(db.words).toHaveLength(1);
+    expect(db.words[0].meaning).toBe("清晰易懂的");
+    expect(summary.duplicates).toEqual(["lucid"]);
+  });
+
+  it("超长的单词与释义按边界截断，而不是丢掉整条", () => {
+    const { db, summary } = applyIntake(createEmptyDatabase(), {
+      entries: [{ term: "a".repeat(90), meaning: "义".repeat(320) }],
+      rejected: [],
+    });
+
+    expect(summary.added).toHaveLength(1);
+    expect(db.words[0].term).toHaveLength(80);
+    expect(db.words[0].meaning).toHaveLength(300);
+  });
+
+  it("空单词与空释义进 rejected，其余照常收录", () => {
+    const { db, summary } = applyIntake(createEmptyDatabase(), {
+      entries: [
+        { term: "   ", meaning: "有释义没单词" },
+        { term: "lucid", meaning: "   " },
+        { term: "candid", meaning: "坦率的" },
+      ],
+      rejected: [{ term: "x", reason: "这一行缺少 Tab 分隔" }],
+    });
+
+    expect(db.words.map((word) => word.term)).toEqual(["candid"]);
+    expect(summary.rejected).toEqual([
+      { term: "x", reason: "这一行缺少 Tab 分隔" },
+      { term: "", reason: "单词为空" },
+      { term: "lucid", reason: "释义为空" },
+    ]);
+  });
+
+  it("空批次返回同一个数据包，不产生新引用", () => {
+    const before = seed(3);
+    const { db, summary } = applyIntake(before, {
+      entries: [],
+      rejected: [],
+    });
+
+    expect(db).toBe(before);
+    expect(summary).toEqual({ added: [], duplicates: [], rejected: [] });
+  });
+
+  it("不改动传入的数据包", () => {
+    const before = seed(2);
+    const snapshot = JSON.parse(JSON.stringify(before)) as AppDatabase;
+
+    applyIntake(before, {
+      entries: [{ term: "lucid", meaning: "清晰易懂的" }],
+      rejected: [],
+    });
+
+    expect(before).toEqual(snapshot);
+    expect(before.words).toHaveLength(2);
+  });
+
+  it("收录的词接在后面，不打断已编排的清单", () => {
+    const { db } = applyIntake(seed(5), {
+      entries: [
+        { term: "harbinger", meaning: "预兆" },
+        { term: "quaint", meaning: "古雅的" },
+      ],
+      rejected: [],
+    });
+    const { lists } = getListOverview(db);
+
+    expect(lists).toHaveLength(2);
+    expect(lists[0].words).toHaveLength(5);
+    expect(lists[1].words.map((word) => word.term)).toEqual([
+      "harbinger",
+      "quaint",
+    ]);
+    expect(lists[1].isPartial).toBe(true);
   });
 });

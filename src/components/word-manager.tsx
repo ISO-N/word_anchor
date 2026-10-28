@@ -16,6 +16,7 @@ import {
 import { buttonClass } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Pager } from "@/components/ui/pager";
+import { MAX_MEANING_LENGTH, MAX_TERM_LENGTH } from "@/lib/data";
 import { formatShortDate } from "@/lib/format";
 import { paginate, parsePageParam } from "@/lib/pagination";
 import { addWord, editWord, removeWord } from "@/lib/store";
@@ -24,8 +25,6 @@ import { usePageReveal } from "@/lib/use-page-reveal";
 import styles from "./word-manager.module.css";
 
 const SEARCH_DEBOUNCE_MS = 250;
-const MAX_TERM_LENGTH = 80;
-const MAX_MEANING_LENGTH = 300;
 
 type FormState = { term: string; meaning: string };
 type FieldErrors = { term?: string; meaning?: string };
@@ -35,10 +34,13 @@ const EMPTY_FORM: FormState = { term: "", meaning: "" };
 export function WordManager({
   words,
   listIndexByWordId,
+  intro,
 }: {
   words: WordRecord[];
   /** 单词 ID → 所在清单编号，与清单页同源（含全部单词，与搜索无关） */
   listIndexByWordId: Map<number, number>;
+  /** 标题下方的插槽：目前用于「从 Anki 快速收录」 */
+  intro?: React.ReactNode;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -237,6 +239,8 @@ export function WordManager({
           </button>
         </div>
       </section>
+
+      {intro}
 
       <div className={styles.summary}>
         <p className={styles.count}>

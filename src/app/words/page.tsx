@@ -3,6 +3,7 @@
 import { Suspense, useMemo } from "react";
 import { DataBackup } from "@/components/data-backup";
 import { DataPlaceholder } from "@/components/data-placeholder";
+import { WordIntake } from "@/components/word-intake";
 import { WordManager } from "@/components/word-manager";
 import { getListIndexByWordId } from "@/lib/data";
 import { useAppData } from "@/lib/use-app-data";
@@ -37,6 +38,7 @@ function WordsView() {
       <WordManager
         words={data.words}
         listIndexByWordId={listIndexByWordId}
+        intro={<WordIntake />}
       />
       <DataBackup />
     </div>

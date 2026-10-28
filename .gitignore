@@ -19,5 +19,11 @@ pnpm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# anki add-on
+__pycache__/
+*.pyc
+anki-addon/dist/
+anki-addon/word_anchor_sync/user_files/
+
 # AI
 .pi/
