@@ -26,7 +26,7 @@ import { FeedbackModeControl } from "@/components/feedback-mode-control";
 import { curvePath } from "@/lib/geometry";
 import { formatClock } from "@/lib/format";
 import { markListComplete } from "@/lib/store";
-import type { FeedbackMode, WordRecord } from "@/lib/types";
+import type { FeedbackMode, PracticeOrigin, WordRecord } from "@/lib/types";
 import styles from "./practice-session.module.css";
 
 type Side = "term" | "meaning";
@@ -52,6 +52,8 @@ type PracticeSessionProps = {
   alreadyCompleted: boolean;
   nextIndex: number | null;
   feedbackMode: FeedbackMode;
+  /** 练习页的入口来源：决定返回链接回到单词库还是学习清单 */
+  origin: PracticeOrigin;
 };
 
 /** 判定标记用「单词:释义」作键：重新连线会换键，旧结论自然失效。 */
@@ -75,6 +77,7 @@ export function PracticeSession({
   alreadyCompleted,
   nextIndex,
   feedbackMode,
+  origin,
 }: PracticeSessionProps) {
   const nodeKey = (side: Side, id: number) => `${side}-${id}`;
   const termLabelId = useId();
@@ -505,9 +508,12 @@ export function PracticeSession({
   return (
     <div className={`shell ${styles.page}`}>
       <div className={styles.topbar}>
-        <Link href="/lists" className={styles.back}>
+        <Link
+          href={origin === "words" ? "/words" : "/lists"}
+          className={styles.back}
+        >
           <ArrowLeft size={16} strokeWidth={1.8} />
-          学习清单
+          {origin === "words" ? "单词库" : "学习清单"}
         </Link>
         <span className={styles.separator} aria-hidden="true" />
         <span className={styles.listTag} translate="no">
@@ -831,15 +837,20 @@ export function PracticeSession({
             </button>
             {nextIndex ? (
               <Link
-                href={`/practice/?list=${nextIndex}`}
+                href={`/practice/?list=${nextIndex}${
+                  origin === "words" ? "&from=words" : ""
+                }`}
                 className={buttonClass({ variant: "ghost" })}
               >
                 下一份清单
                 <ArrowRight size={16} strokeWidth={1.8} />
               </Link>
             ) : (
-              <Link href="/lists" className={buttonClass({ variant: "ghost" })}>
-                返回清单
+              <Link
+                href={origin === "words" ? "/words" : "/lists"}
+                className={buttonClass({ variant: "ghost" })}
+              >
+                {origin === "words" ? "返回单词库" : "返回清单"}
                 <ArrowRight size={16} strokeWidth={1.8} />
               </Link>
             )}

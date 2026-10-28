@@ -220,6 +220,22 @@ export function getStudyList(db: AppDatabase, index: number): StudyList | null {
   return getListOverview(db).lists.find((list) => list.index === index) ?? null;
 }
 
+/**
+ * 「这个词在哪一份清单」的唯一答案：直接由分组结果反查，不另写一份除法，
+ * 这样单词库里的编号与清单页永远同源。
+ *
+ * 编号只由全库 FIFO 位置与每组单词数决定，与搜索、分页无关。
+ */
+export function getListIndexByWordId(db: AppDatabase): Map<number, number> {
+  const indexByWordId = new Map<number, number>();
+
+  getListOverview(db).lists.forEach((list) => {
+    list.words.forEach((word) => indexByWordId.set(word.id, list.index));
+  });
+
+  return indexByWordId;
+}
+
 export function completeStudyList(
   db: AppDatabase,
   index: number,

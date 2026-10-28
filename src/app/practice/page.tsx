@@ -8,6 +8,7 @@ import { DataPlaceholder } from "@/components/data-placeholder";
 import { PracticeSession } from "@/components/practice-session";
 import { buttonClass } from "@/components/ui/button";
 import { getListOverview, getStudyList } from "@/lib/data";
+import type { PracticeOrigin } from "@/lib/types";
 import { useAppData } from "@/lib/use-app-data";
 import styles from "./page.module.css";
 
@@ -27,6 +28,9 @@ function PracticeView() {
   const searchParams = useSearchParams();
   const data = useAppData();
   const listIndex = Number(searchParams.get("list") ?? "1");
+  /* 从单词库进来时返回链接回到单词库，其余保留原来的清单语境 */
+  const origin: PracticeOrigin =
+    searchParams.get("from") === "words" ? "words" : "lists";
 
   if (!data) {
     return <DataPlaceholder label="正在打开练习…" />;
@@ -54,6 +58,7 @@ function PracticeView() {
       alreadyCompleted={list.status === "completed"}
       nextIndex={nextList?.index ?? null}
       feedbackMode={data.settings.feedbackMode}
+      origin={origin}
     />
   );
 }

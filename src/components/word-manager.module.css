@@ -177,6 +177,10 @@
   font-variant-numeric: tabular-nums;
 }
 
+.colList {
+  width: 104px;
+}
+
 .colActions {
   width: 88px;
 }
@@ -200,6 +204,44 @@
   font-size: var(--t-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 行内的清单入口：编号本身既是信息也是链接 */
+.listLink {
+  display: inline-flex;
+  padding: 2px 0;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid transparent;
+  color: var(--muted);
+  font-family: var(--font-term);
+  font-size: var(--t-xs);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  transition: color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
+}
+
+.listLink:hover {
+  border-bottom-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent);
+}
+
+.listNumber {
+  font-variant-numeric: tabular-nums;
+}
+
+.listArrow {
+  flex: 0 0 auto;
+  opacity: 0.5;
+  transition: opacity var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+
+.listLink:hover .listArrow {
+  opacity: 1;
+  transform: translate(1px, -1px);
 }
 
 .rowActions {
@@ -277,6 +319,20 @@
 
   .colDate {
     display: none;
+  }
+
+  /* 窄屏只留编号与箭头：LIST 前缀交给表头说明 */
+  .colList {
+    width: 64px;
+  }
+
+  .listPrefix {
+    display: none;
+  }
+
+  .listLink {
+    font-size: var(--t-sm);
+    letter-spacing: 0;
   }
 
   .colActions {

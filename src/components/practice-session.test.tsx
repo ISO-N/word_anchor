@@ -41,6 +41,7 @@ function session(feedbackMode: FeedbackMode) {
       alreadyCompleted={false}
       nextIndex={null}
       feedbackMode={feedbackMode}
+      origin="lists"
     />
   );
 }

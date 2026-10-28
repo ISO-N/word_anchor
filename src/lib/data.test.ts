@@ -4,6 +4,7 @@ import {
   createEmptyDatabase,
   createWord,
   deleteWord,
+  getListIndexByWordId,
   getListOverview,
   getStudyList,
   setFeedbackMode,
@@ -88,6 +89,49 @@ describe("清单编排", () => {
     expect(getStudyList(db, 1)?.index).toBe(1);
     expect(getStudyList(db, 3)).toBeNull();
     expect(getStudyList(db, 0)).toBeNull();
+  });
+});
+
+describe("单词所在清单", () => {
+  it("按全库 FIFO 位置映射到清单编号", () => {
+    const indexByWordId = getListIndexByWordId(seed(12));
+
+    expect(indexByWordId.get(1)).toBe(1);
+    expect(indexByWordId.get(5)).toBe(1);
+    expect(indexByWordId.get(6)).toBe(2);
+    expect(indexByWordId.get(11)).toBe(3);
+    expect(indexByWordId.get(12)).toBe(3);
+  });
+
+  it("与清单页的分组完全一致", () => {
+    const db = seed(23);
+    const indexByWordId = getListIndexByWordId(db);
+    const { lists } = getListOverview(db);
+
+    lists.forEach((list) => {
+      list.words.forEach((word) => {
+        expect(indexByWordId.get(word.id)).toBe(list.index);
+      });
+    });
+    expect(indexByWordId.size).toBe(db.words.length);
+  });
+
+  it("删词后后面的词前移，编号重新计算", () => {
+    const db = deleteWord(seed(12), 1);
+
+    expect(getListIndexByWordId(db).get(6)).toBe(1);
+    expect(getListIndexByWordId(db).get(12)).toBe(3);
+  });
+
+  it("修改每组数量后重新映射", () => {
+    const indexByWordId = getListIndexByWordId(setListSize(seed(12), 8));
+
+    expect(indexByWordId.get(8)).toBe(1);
+    expect(indexByWordId.get(9)).toBe(2);
+  });
+
+  it("空词库没有任何映射", () => {
+    expect(getListIndexByWordId(createEmptyDatabase()).size).toBe(0);
   });
 });
 

@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
+  ArrowUpRight,
   BookOpen,
   Pencil,
   Plus,
@@ -31,7 +32,14 @@ type FieldErrors = { term?: string; meaning?: string };
 
 const EMPTY_FORM: FormState = { term: "", meaning: "" };
 
-export function WordManager({ words }: { words: WordRecord[] }) {
+export function WordManager({
+  words,
+  listIndexByWordId,
+}: {
+  words: WordRecord[];
+  /** 单词 ID → 所在清单编号，与清单页同源（含全部单词，与搜索无关） */
+  listIndexByWordId: Map<number, number>;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -411,6 +419,9 @@ export function WordManager({ words }: { words: WordRecord[] }) {
                 </th>
                 <th scope="col">单词</th>
                 <th scope="col">释义</th>
+                <th className={styles.colList} scope="col">
+                  清单
+                </th>
                 <th className={styles.colDate} scope="col">
                   加入时间
                 </th>
@@ -420,44 +431,69 @@ export function WordManager({ words }: { words: WordRecord[] }) {
               </tr>
             </thead>
             <tbody>
-              {pageData.items.map((word) => (
-                <tr key={word.id}>
-                  <td className={styles.colIndex}>
-                    {String(orderById.get(word.id) ?? 0).padStart(2, "0")}
-                  </td>
-                  <td>
-                    <span className={styles.term} lang="en" translate="no">
-                      {word.term}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={styles.meaning}>{word.meaning}</span>
-                  </td>
-                  <td className={styles.colDate}>
-                    {formatShortDate(word.createdAt)}
-                  </td>
-                  <td className={styles.colActions}>
-                    <div className={styles.rowActions}>
-                      <button
-                        type="button"
-                        className={styles.rowButton}
-                        onClick={() => openEdit(word)}
-                        aria-label={`编辑 ${word.term}`}
-                      >
-                        <Pencil size={16} strokeWidth={1.8} />
-                      </button>
-                      <button
-                        type="button"
-                        className={`${styles.rowButton} ${styles.rowButtonDanger}`}
-                        onClick={() => setPendingDelete(word)}
-                        aria-label={`删除 ${word.term}`}
-                      >
-                        <Trash2 size={16} strokeWidth={1.8} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {pageData.items.map((word) => {
+                const listIndex = listIndexByWordId.get(word.id);
+
+                return (
+                  <tr key={word.id}>
+                    <td className={styles.colIndex}>
+                      {String(orderById.get(word.id) ?? 0).padStart(2, "0")}
+                    </td>
+                    <td>
+                      <span className={styles.term} lang="en" translate="no">
+                        {word.term}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={styles.meaning}>{word.meaning}</span>
+                    </td>
+                    <td className={styles.colList}>
+                      {listIndex !== undefined && (
+                        <Link
+                          href={`/practice/?list=${listIndex}&from=words`}
+                          className={styles.listLink}
+                          translate="no"
+                          aria-label={`LIST ${String(listIndex).padStart(2, "0")}，含 ${word.term}，进入连线练习`}
+                        >
+                          <span className={styles.listPrefix}>LIST</span>
+                          <span className={styles.listNumber}>
+                            {String(listIndex).padStart(2, "0")}
+                          </span>
+                          <ArrowUpRight
+                            className={styles.listArrow}
+                            size={13}
+                            strokeWidth={1.9}
+                            aria-hidden="true"
+                          />
+                        </Link>
+                      )}
+                    </td>
+                    <td className={styles.colDate}>
+                      {formatShortDate(word.createdAt)}
+                    </td>
+                    <td className={styles.colActions}>
+                      <div className={styles.rowActions}>
+                        <button
+                          type="button"
+                          className={styles.rowButton}
+                          onClick={() => openEdit(word)}
+                          aria-label={`编辑 ${word.term}`}
+                        >
+                          <Pencil size={16} strokeWidth={1.8} />
+                        </button>
+                        <button
+                          type="button"
+                          className={`${styles.rowButton} ${styles.rowButtonDanger}`}
+                          onClick={() => setPendingDelete(word)}
+                          aria-label={`删除 ${word.term}`}
+                        >
+                          <Trash2 size={16} strokeWidth={1.8} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
 

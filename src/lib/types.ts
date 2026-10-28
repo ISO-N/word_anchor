@@ -22,6 +22,9 @@ export type StudyList = {
 
 export type FeedbackMode = "instant" | "manual";
 
+/** 练习页的入口来源：决定返回链接回到单词库还是学习清单 */
+export type PracticeOrigin = "words" | "lists";
+
 export type AppSettings = {
   listSize: number;
   feedbackMode: FeedbackMode;
