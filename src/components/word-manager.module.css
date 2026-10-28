@@ -242,33 +242,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.pager {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.pagerButton {
-  display: inline-flex;
-  height: 32px;
-  padding: 0 10px;
-  align-items: center;
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--r-sm);
-  background: var(--slip);
-  color: var(--ink-soft);
-  font-size: var(--t-xs);
-}
-
-.pagerButton:hover:not(:disabled) {
-  border-color: var(--ink-soft);
-}
-
-.pagerButton:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
 @media (min-width: 720px) {
   .editorGrid {
     grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
@@ -327,9 +300,5 @@
   .rowButton {
     width: 44px;
     height: 44px;
-  }
-
-  .pagerButton {
-    height: 40px;
   }
 }

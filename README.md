@@ -7,7 +7,7 @@
 ## 功能
 
 - **单词管理**：手动添加、编辑、删除和搜索单词及释义，单词去重（忽略大小写）；50 条一页，搜索词与页码写在 URL 里（`/words/?q=serendipity&page=2`），可分享、可后退。
-- **FIFO 清单**：按录入时间先进先出分组，可设置每组 2–20 个单词，修改后清单立即重新编排。
+- **FIFO 清单**：按录入时间先进先出分组，可设置每组 2–20 个单词，修改后清单立即重新编排；清单页 10 份一页，页码同样写在 URL 里（`/lists/?page=2`），页脚会提示「下一组在第 N 页」。
 - **连线练习**：左右两列打乱顺序，支持点击配对或拖拽连线；可选择**即时反馈**（连上即用墨绿／陶土虚线标出对错，全部连对自动完成）或**手动判定**（连线时不露对错，全部连好后点「判定」一次看清结果，错误连线保留可改）。键盘同样可以完成整轮练习。
 - **进度记录**：记录已完成的清单，回访时仍可重复练习。
 - **主题**：跟随系统 / 浅色 / 深色三态切换，偏好存在 `localStorage`，首帧即生效（无闪白）。
@@ -86,7 +86,7 @@ src/
 │   ├── practice/             # 连线练习（/practice/?list=3）
 │   └── words/                # 单词管理 + 备份
 ├── components/
-│   ├── ui/                   # Dialog（焦点陷阱）/ buttonClass
+│   ├── ui/                   # Dialog（焦点陷阱）/ Pager（页码条）/ buttonClass
 │   ├── practice-session.tsx  # 练习板本体（拖拽 + 点击 + 键盘）
 │   ├── theme-toggle.tsx      # 三态主题切换
 │   └── list-row.tsx          # 首页与清单页共用的账本行
@@ -95,7 +95,9 @@ src/
 │   ├── store.ts              # IndexedDB 读写、内存快照、订阅与操作
 │   ├── backup.ts             # 备份序列化 / 校验 / 下载
 │   ├── theme.ts              # 主题偏好与首帧脚本
-│   ├── pagination.ts         # 分页（纯函数）
+│   ├── pagination.ts         # 分页与页码窗口（纯函数）
+│   ├── reveal-region.ts      # 翻页后滚动 + 聚焦区块
+│   ├── use-page-reveal.ts    # 页码变化时露出区块的 hook
 │   ├── geometry.ts           # 连线曲线的唯一来源
 │   └── use-app-data.ts       # useSyncExternalStore 接入 React
 └── styles/

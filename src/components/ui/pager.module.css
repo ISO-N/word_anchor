@@ -1,0 +1,55 @@
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.step,
+.page {
+  display: inline-flex;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 10px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-sm);
+  background: var(--slip);
+  color: var(--ink-soft);
+  font-size: var(--t-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.step:hover:not(:disabled),
+.page:hover {
+  border-color: var(--ink-soft);
+}
+
+.step:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.current,
+.current:hover {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--on-ink);
+}
+
+.gap {
+  min-width: 12px;
+  color: var(--muted);
+  font-size: var(--t-xs);
+  text-align: center;
+}
+
+@media (pointer: coarse) {
+  .step,
+  .page {
+    min-width: 40px;
+    height: 40px;
+  }
+}

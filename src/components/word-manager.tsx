@@ -14,10 +14,12 @@ import {
 } from "lucide-react";
 import { buttonClass } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { Pager } from "@/components/ui/pager";
 import { formatShortDate } from "@/lib/format";
 import { paginate, parsePageParam } from "@/lib/pagination";
 import { addWord, editWord, removeWord } from "@/lib/store";
 import type { WordRecord } from "@/lib/types";
+import { usePageReveal } from "@/lib/use-page-reveal";
 import styles from "./word-manager.module.css";
 
 const SEARCH_DEBOUNCE_MS = 250;
@@ -101,6 +103,9 @@ export function WordManager({ words }: { words: WordRecord[] }) {
     [filteredWords, page],
   );
 
+  const tableRef = useRef<HTMLDivElement | null>(null);
+  const requestReveal = usePageReveal(pageData.page, tableRef);
+
   /* 序号按词库全序计算，不再在 map 里 findIndex（O(n²)） */
   const orderById = useMemo(
     () => new Map(words.map((word, index) => [word.id, index + 1])),
@@ -108,6 +113,9 @@ export function WordManager({ words }: { words: WordRecord[] }) {
   );
 
   function goToPage(nextPage: number) {
+    if (nextPage === pageData.page) return;
+
+    requestReveal();
     replaceParams((params) => {
       if (nextPage <= 1) params.delete("page");
       else params.set("page", String(nextPage));
@@ -388,7 +396,13 @@ export function WordManager({ words }: { words: WordRecord[] }) {
           </button>
         </div>
       ) : (
-        <div className={styles.tableWrap}>
+        <div
+          ref={tableRef}
+          className={styles.tableWrap}
+          role="region"
+          aria-label={`单词列表，第 ${pageData.page} 页`}
+          tabIndex={-1}
+        >
           <table className={styles.table}>
             <thead>
               <tr>
@@ -448,33 +462,16 @@ export function WordManager({ words }: { words: WordRecord[] }) {
           </table>
 
           <div className={styles.footer}>
-            <span>
+            <span aria-live="polite">
               显示 {pageData.from}–{pageData.to} / 共 {filteredWords.length} 个词
             </span>
 
-            {pageData.totalPages > 1 && (
-              <nav className={styles.pager} aria-label="分页">
-                <button
-                  type="button"
-                  className={styles.pagerButton}
-                  onClick={() => goToPage(pageData.page - 1)}
-                  disabled={pageData.page <= 1}
-                >
-                  上一页
-                </button>
-                <span>
-                  第 {pageData.page} / {pageData.totalPages} 页
-                </span>
-                <button
-                  type="button"
-                  className={styles.pagerButton}
-                  onClick={() => goToPage(pageData.page + 1)}
-                  disabled={pageData.page >= pageData.totalPages}
-                >
-                  下一页
-                </button>
-              </nav>
-            )}
+            <Pager
+              page={pageData.page}
+              totalPages={pageData.totalPages}
+              onChange={goToPage}
+              label="单词分页"
+            />
           </div>
         </div>
       )}
