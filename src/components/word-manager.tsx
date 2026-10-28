@@ -58,10 +58,15 @@ export function WordManager({
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState("");
   const [pendingDelete, setPendingDelete] = useState<WordRecord | null>(null);
+  /** 打开表单时把焦点交给谁：触屏落在「取消」，避免直接弹出软键盘 */
+  const [focusTarget, setFocusTarget] = useState<"term" | "cancel">(
+    "cancel",
+  );
 
   const termRef = useRef<HTMLInputElement | null>(null);
   const meaningRef = useRef<HTMLInputElement | null>(null);
-  const cancelRef = useRef<HTMLButtonElement | null>(null);
+  const formCancelRef = useRef<HTMLButtonElement | null>(null);
+  const deleteCancelRef = useRef<HTMLButtonElement | null>(null);
 
   const replaceParams = useCallback(
     (mutate: (params: URLSearchParams) => void) => {
@@ -132,11 +137,17 @@ export function WordManager({
     });
   }
 
+  /* 只在桌面键盘环境下自动聚焦，避免移动端弹出键盘 */
+  function wantsFieldFocus(): boolean {
+    return window.matchMedia("(pointer: fine)").matches;
+  }
+
   function openCreate() {
     setEditingId(null);
     setForm(EMPTY_FORM);
     setErrors({});
     setFormError("");
+    setFocusTarget(wantsFieldFocus() ? "term" : "cancel");
     setFormOpen(true);
   }
 
@@ -145,8 +156,8 @@ export function WordManager({
     setForm({ term: word.term, meaning: word.meaning });
     setErrors({});
     setFormError("");
+    setFocusTarget(wantsFieldFocus() ? "term" : "cancel");
     setFormOpen(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function closeForm() {
@@ -156,13 +167,6 @@ export function WordManager({
     setErrors({});
     setFormError("");
   }
-
-  /* 只在桌面键盘环境下自动聚焦，避免移动端弹出键盘 */
-  useEffect(() => {
-    if (!formOpen) return;
-    if (!window.matchMedia("(pointer: fine)").matches) return;
-    termRef.current?.focus();
-  }, [formOpen, editingId]);
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -276,112 +280,6 @@ export function WordManager({
           )}
         </div>
       </div>
-
-      {formOpen && (
-        <form className={styles.editor} onSubmit={submit} noValidate>
-          <div className={styles.editorHead}>
-            <h2 className={styles.editorTitle}>
-              {editingId ? "调整这个词" : "记下一个新词"}
-            </h2>
-            <button
-              type="button"
-              className={styles.rowButton}
-              onClick={closeForm}
-              aria-label="关闭编辑面板"
-            >
-              <X size={18} strokeWidth={1.8} />
-            </button>
-          </div>
-
-          <div className={styles.editorGrid}>
-            <div className="field">
-              <label className="field-label" htmlFor="word-term">
-                单词
-              </label>
-              <input
-                ref={termRef}
-                id="word-term"
-                className="field-input"
-                name="term"
-                autoComplete="off"
-                spellCheck={false}
-                maxLength={MAX_TERM_LENGTH}
-                value={form.term}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, term: event.target.value }))
-                }
-                aria-invalid={Boolean(errors.term)}
-                aria-describedby={errors.term ? "word-term-error" : undefined}
-                placeholder="serendipity…"
-              />
-              {errors.term && (
-                <p className="field-error" id="word-term-error" role="alert">
-                  {errors.term}
-                </p>
-              )}
-            </div>
-
-            <div className="field">
-              <label className="field-label" htmlFor="word-meaning">
-                释义
-              </label>
-              <input
-                ref={meaningRef}
-                id="word-meaning"
-                className="field-input"
-                name="meaning"
-                autoComplete="off"
-                maxLength={MAX_MEANING_LENGTH}
-                value={form.meaning}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    meaning: event.target.value,
-                  }))
-                }
-                aria-invalid={Boolean(errors.meaning)}
-                aria-describedby={
-                  errors.meaning ? "word-meaning-error" : undefined
-                }
-                placeholder="意外发现美好事物的运气…"
-              />
-              {errors.meaning && (
-                <p className="field-error" id="word-meaning-error" role="alert">
-                  {errors.meaning}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {formError && (
-            <p className="field-error" role="alert" style={{ marginTop: 12 }}>
-              {formError}
-            </p>
-          )}
-
-          <div className={styles.editorFoot}>
-            <span className={styles.editorHint}>
-              单词与释义保存在这台设备的浏览器里。
-            </span>
-            <div className={styles.formActions}>
-              <button
-                type="button"
-                className={buttonClass({ variant: "ghost", size: "sm" })}
-                onClick={closeForm}
-              >
-                取消
-              </button>
-              <button
-                type="submit"
-                className={buttonClass({ size: "sm" })}
-              >
-                {editingId ? "保存修改" : "加入词库"}
-                <ArrowRight size={15} strokeWidth={1.8} />
-              </button>
-            </div>
-          </div>
-        </form>
-      )}
 
       {words.length === 0 ? (
         <div className="empty-state">
@@ -517,6 +415,97 @@ export function WordManager({
       )}
 
       <Dialog
+        open={formOpen}
+        onClose={closeForm}
+        title={editingId ? "调整这个词" : "记下一个新词"}
+        description="单词与释义保存在这台设备的浏览器里。"
+        initialFocus={focusTarget === "term" ? termRef : formCancelRef}
+      >
+        <form onSubmit={submit} noValidate>
+          <div className={styles.formGrid}>
+            <div className="field">
+              <label className="field-label" htmlFor="word-term">
+                单词
+              </label>
+              <input
+                ref={termRef}
+                id="word-term"
+                className="field-input"
+                name="term"
+                autoComplete="off"
+                spellCheck={false}
+                maxLength={MAX_TERM_LENGTH}
+                value={form.term}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, term: event.target.value }))
+                }
+                aria-invalid={Boolean(errors.term)}
+                aria-describedby={errors.term ? "word-term-error" : undefined}
+                placeholder="serendipity…"
+              />
+              {errors.term && (
+                <p className="field-error" id="word-term-error" role="alert">
+                  {errors.term}
+                </p>
+              )}
+            </div>
+
+            <div className="field">
+              <label className="field-label" htmlFor="word-meaning">
+                释义
+              </label>
+              <input
+                ref={meaningRef}
+                id="word-meaning"
+                className="field-input"
+                name="meaning"
+                autoComplete="off"
+                maxLength={MAX_MEANING_LENGTH}
+                value={form.meaning}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    meaning: event.target.value,
+                  }))
+                }
+                aria-invalid={Boolean(errors.meaning)}
+                aria-describedby={
+                  errors.meaning ? "word-meaning-error" : undefined
+                }
+                placeholder="意外发现美好事物的运气…"
+              />
+              {errors.meaning && (
+                <p className="field-error" id="word-meaning-error" role="alert">
+                  {errors.meaning}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {formError && (
+            <p className="field-error" role="alert" style={{ marginTop: 12 }}>
+              {formError}
+            </p>
+          )}
+
+          <div className={styles.formFoot}>
+            <button
+              ref={formCancelRef}
+              type="button"
+              className={buttonClass({ variant: "ghost" })}
+              onClick={closeForm}
+            >
+              取消
+            </button>
+            <button type="submit" className={buttonClass()}>
+              {editingId ? "保存修改" : "加入词库"}
+              <ArrowRight size={15} strokeWidth={1.8} />
+            </button>
+          </div>
+        </form>
+      </Dialog>
+
+      <Dialog
         open={pendingDelete !== null}
         onClose={() => setPendingDelete(null)}
         title="删除这个单词？"
@@ -530,11 +519,11 @@ export function WordManager({
             "这个词会从词库中移除。"
           )
         }
-        initialFocus={cancelRef}
+        initialFocus={deleteCancelRef}
         footer={
           <>
             <button
-              ref={cancelRef}
+              ref={deleteCancelRef}
               type="button"
               className={buttonClass({ variant: "ghost" })}
               onClick={() => setPendingDelete(null)}
