@@ -38,13 +38,17 @@
   stroke-linecap: round;
 }
 
-.meaning {
-  overflow: hidden;
+.blank {
+  display: block;
+  height: 10px;
+  border: 1px dashed var(--rule-strong);
+  border-radius: 999px;
+}
+
+.hint {
+  margin: 10px 0 0;
   color: var(--muted);
-  font-size: var(--t-sm);
-  line-height: 1.5;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: var(--t-xs);
 }
 
 @media (max-width: 420px) {

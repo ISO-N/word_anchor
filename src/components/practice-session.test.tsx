@@ -32,11 +32,26 @@ const WORDS: WordRecord[] = [
   },
 ];
 
-function session(feedbackMode: FeedbackMode) {
+/* 五个词：默认清单大小，也是「至少一行对位」最容易发生的规模 */
+const BOARD_WORDS: WordRecord[] = [
+  "serendipity",
+  "lucid",
+  "anchor",
+  "ephemeral",
+  "tacit",
+].map((term, index) => ({
+  id: index + 1,
+  term,
+  meaning: `释义 ${index + 1}`,
+  createdAt: "2024-01-01T00:00:00.000Z",
+  updatedAt: "2024-01-01T00:00:00.000Z",
+}));
+
+function session(feedbackMode: FeedbackMode, words: WordRecord[] = WORDS) {
   return (
     <PracticeSession
       listIndex={1}
-      words={WORDS}
+      words={words}
       isPartial={false}
       alreadyCompleted={false}
       nextIndex={null}
@@ -48,6 +63,13 @@ function session(feedbackMode: FeedbackMode) {
 
 function card(name: string) {
   return screen.getByRole("button", { name });
+}
+
+/** 按 DOM 顺序读出某一列的单词 id：正文顺序就是排布结果 */
+function columnIds(side: "term" | "meaning") {
+  return Array.from(
+    document.querySelectorAll(`[data-node-side="${side}"]`),
+  ).map((node) => (node as HTMLElement).dataset.nodeId ?? "");
 }
 
 async function connect(
@@ -152,5 +174,25 @@ describe("练习反馈方式", () => {
     expect(
       screen.queryByRole("button", { name: "判定" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("单词与释义不会落在同一行（即使随机源退化）", () => {
+    /* Math.random 恒为 0 时两次洗牌会得到同一排列，正好压到兜底路径上 */
+    const random = vi.spyOn(Math, "random").mockReturnValue(0);
+    try {
+      render(session("instant", BOARD_WORDS));
+    } finally {
+      random.mockRestore();
+    }
+
+    const terms = columnIds("term");
+    const meanings = columnIds("meaning");
+
+    expect(terms).toHaveLength(BOARD_WORDS.length);
+    expect(meanings).toHaveLength(BOARD_WORDS.length);
+    terms.forEach((id, index) => {
+      expect(meanings[index]).not.toBe(id);
+    });
+    expect(terms).not.toEqual(meanings);
   });
 });

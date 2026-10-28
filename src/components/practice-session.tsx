@@ -23,6 +23,7 @@ import {
 import { buttonClass } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { FeedbackModeControl } from "@/components/feedback-mode-control";
+import { arrangeBoard, type BoardOrder } from "@/lib/board";
 import { curvePath } from "@/lib/geometry";
 import { formatClock } from "@/lib/format";
 import { markListComplete } from "@/lib/store";
@@ -61,14 +62,7 @@ function pairKey(termId: number, meaningId: number): string {
   return `${termId}:${meaningId}`;
 }
 
-function shuffle<T>(items: T[]): T[] {
-  const result = [...items];
-  for (let index = result.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(Math.random() * (index + 1));
-    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
-  }
-  return result;
-}
+const EMPTY_BOARD: BoardOrder = { terms: [], meanings: [] };
 
 export function PracticeSession({
   listIndex,
@@ -83,8 +77,8 @@ export function PracticeSession({
   const termLabelId = useId();
   const meaningLabelId = useId();
 
-  const [terms, setTerms] = useState<WordRecord[]>([]);
-  const [meanings, setMeanings] = useState<WordRecord[]>([]);
+  const [board, setBoard] = useState<BoardOrder>(EMPTY_BOARD);
+  const { terms, meanings } = board;
   const [pairs, setPairs] = useState<Pairs>({});
   const [judgedPairs, setJudgedPairs] = useState<Record<string, true>>({});
   const [selected, setSelected] = useState<NodeRef | null>(null);
@@ -125,8 +119,7 @@ export function PracticeSession({
     elapsedRef.current = 0;
     setElapsed(0);
     completionSentRef.current = false;
-    setTerms(shuffle(words));
-    setMeanings(shuffle(words));
+    setBoard(arrangeBoard(words));
     setSession((current) => current + 1);
   }, [words]);
 
