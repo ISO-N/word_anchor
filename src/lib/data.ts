@@ -1,7 +1,6 @@
 import type {
   AppDatabase,
   AppSettings,
-  CompletionRecord,
   FeedbackMode,
   IntakeSummary,
   ListOverview,
@@ -11,7 +10,7 @@ import type {
   WordRecord,
 } from "@/lib/types";
 
-export const DATABASE_VERSION = 1 as const;
+export const DATABASE_VERSION = 2 as const;
 export const DEFAULT_LIST_SIZE = 5;
 export const MIN_LIST_SIZE = 2;
 export const MAX_LIST_SIZE = 20;
@@ -31,7 +30,6 @@ export function createEmptyDatabase(): AppDatabase {
       listSize: DEFAULT_LIST_SIZE,
       feedbackMode: DEFAULT_FEEDBACK_MODE,
     },
-    completions: {},
   };
 }
 
@@ -105,27 +103,60 @@ export function createWord(
     meaning,
     createdAt: now,
     updatedAt: now,
+    completedAt: null,
+    lastCapturedAt: null,
   };
 
   return { ...db, words: [...db.words, word] };
 }
 
 /**
+ * 又见到这个词时，是不是「新的一次抓取」（而不是重发）。
+ *
+ * - 没有时间戳（手工粘贴、旧版插件）→ 当成新抓取，功能不依赖插件升级
+ * - 库里没有记录过时间 → 新抓取
+ * - 时间戳更晚 → 新抓取；相同或更早 → 重发，只去重不挪位
+ */
+function isNewerCapture(
+  incoming: string | undefined,
+  previous: string | null | undefined,
+): boolean {
+  if (!incoming) return true;
+  if (!previous) return true;
+
+  const incomingMs = Date.parse(incoming);
+  const previousMs = Date.parse(previous);
+  if (Number.isNaN(incomingMs) || Number.isNaN(previousMs)) return true;
+
+  return incomingMs > previousMs;
+}
+
+/**
  * 批量收录（Anki 插件 / 粘贴）：容忍脏数据，不抛错。
  *
  * - 超长的单词与释义按边界截断，而不是丢掉整条
- * - 库内已有（忽略大小写）或本批前面已接受的同名单词计入 duplicates，保留库里原有释义
+ * - 库里已有（忽略大小写）且是新的一次抓取 → 挪到队尾并清掉完成标记（`requeued`），
+ *   于是它会在最新一组里再被练一次；库里原释义、createdAt、updatedAt 都不变
+ * - 库里已有但只是重发 → 计入 duplicates，一个字节也不改
+ * - 本批前面已接受/已重排的同名单词，后面的计入 duplicates
  * - 其余问题（空单词、空释义、解析阶段就不认识的行）归入 rejected，界面报数
- * - 一批只取一次 `now`，追加顺序就是抓取/发送顺序
+ * - 一批只取一次 `now`，新词与重排词都按接收顺序追加
  */
 export function applyIntake(
   db: AppDatabase,
   intake: ParsedIntake,
 ): { db: AppDatabase; summary: IntakeSummary } {
   const now = new Date().toISOString();
-  const seen = new Set(db.words.map((word) => word.term.toLocaleLowerCase()));
+  const byTerm = new Map(
+    db.words.map((word) => [word.term.toLocaleLowerCase(), word]),
+  );
+  const requeuedIds = new Set<number>();
+  /** 这一批里已经处理过的词（新增或重排）：同批再次出现只算重复 */
+  const handledIds = new Set<number>();
+  const bumped: WordRecord[] = [];
   const added: WordRecord[] = [];
   const duplicates: string[] = [];
+  const requeued: string[] = [];
   const rejected: RejectedEntry[] = [...intake.rejected];
 
   intake.entries.forEach((entry) => {
@@ -145,27 +176,59 @@ export function applyIntake(
     }
 
     const key = term.toLocaleLowerCase();
-    if (seen.has(key)) {
+    const existing = byTerm.get(key);
+
+    if (!existing) {
+      const word: WordRecord = {
+        id: nextWordId(db.words) + added.length,
+        term,
+        meaning,
+        createdAt: now,
+        updatedAt: now,
+        completedAt: null,
+        lastCapturedAt: entry.capturedAt ?? null,
+      };
+
+      byTerm.set(key, word);
+      handledIds.add(word.id);
+      added.push(word);
+      return;
+    }
+
+    if (
+      handledIds.has(existing.id) ||
+      !isNewerCapture(entry.capturedAt, existing.lastCapturedAt)
+    ) {
       duplicates.push(term);
       return;
     }
 
-    seen.add(key);
-    added.push({
-      id: nextWordId(db.words) + added.length,
-      term,
-      meaning,
-      createdAt: now,
-      updatedAt: now,
+    handledIds.add(existing.id);
+    requeuedIds.add(existing.id);
+    requeued.push(term);
+    bumped.push({
+      ...existing,
+      completedAt: null,
+      lastCapturedAt: entry.capturedAt ?? existing.lastCapturedAt ?? null,
     });
   });
 
-  const summary: IntakeSummary = { added, duplicates, rejected };
-  if (added.length === 0) {
+  const summary: IntakeSummary = { added, duplicates, requeued, rejected };
+  if (added.length === 0 && bumped.length === 0) {
     return { db, summary };
   }
 
-  return { db: { ...db, words: [...db.words, ...added] }, summary };
+  return {
+    db: {
+      ...db,
+      words: [
+        ...db.words.filter((word) => !requeuedIds.has(word.id)),
+        ...added,
+        ...bumped,
+      ],
+    },
+    summary,
+  };
 }
 
 export function updateWord(
@@ -236,15 +299,26 @@ export function setFeedbackMode(
  * 清单签名只用来做完成记录的键，不需要抗碰撞，因此直接用单词 ID 拼接：
  * 同步、稳定、零依赖（WebCrypto 的 digest 是异步的，无法在渲染期使用）。
  */
+/**
+ * 清单签名只用来做 React key（与清单内单词的一一对应），不需要抗碰撞：
+ * 同步、稳定、零依赖（WebCrypto 的 digest 是异步的，无法在渲染期使用）。
+ */
 function createSignature(words: WordRecord[]): string {
   return words.map((word) => word.id).join("-");
 }
 
-function buildLists(
-  words: WordRecord[],
-  listSize: number,
-  completions: Record<string, CompletionRecord>,
-): StudyList[] {
+/** 组内最晚的完成时间；完成状态按单词记，所以组里没练过的词会让整组回到待练习 */
+function latestCompletion(words: WordRecord[]): string | null {
+  return words.reduce<string | null>(
+    (latest, word) =>
+      word.completedAt && (!latest || word.completedAt > latest)
+        ? word.completedAt
+        : latest,
+    null,
+  );
+}
+
+function buildLists(words: WordRecord[], listSize: number): StudyList[] {
   if (words.length === 0) {
     return [];
   }
@@ -253,8 +327,7 @@ function buildLists(
 
   for (let offset = 0; offset < words.length; offset += listSize) {
     const listWords = words.slice(offset, offset + listSize);
-    const signature = createSignature(listWords);
-    const record = completions[signature];
+    const completed = listWords.every((word) => word.completedAt);
     const index = lists.length + 1;
 
     lists.push({
@@ -263,9 +336,9 @@ function buildLists(
       endOrder: offset + listWords.length,
       size: listSize,
       isPartial: listWords.length < listSize,
-      status: record ? "completed" : "ready",
-      completedAt: record?.completedAt ?? null,
-      signature,
+      status: completed ? "completed" : "ready",
+      completedAt: completed ? latestCompletion(listWords) : null,
+      signature: createSignature(listWords),
       words: listWords,
     });
   }
@@ -279,7 +352,7 @@ export function getListOverview(db: AppDatabase): ListOverview {
   return {
     words: db.words,
     settings,
-    lists: buildLists(db.words, settings.listSize, db.completions),
+    lists: buildLists(db.words, settings.listSize),
   };
 }
 
@@ -303,31 +376,19 @@ export function getListIndexByWordId(db: AppDatabase): Map<number, number> {
   return indexByWordId;
 }
 
-export function completeStudyList(
-  db: AppDatabase,
-  index: number,
-  attemptsValue: unknown,
-  mistakesValue: unknown,
-): AppDatabase {
+export function completeStudyList(db: AppDatabase, index: number): AppDatabase {
   const list = getStudyList(db, index);
   if (!list) {
     throw new Error("清单不存在");
   }
 
-  const attempts = Math.max(1, Math.trunc(Number(attemptsValue) || 1));
-  const mistakes = Math.max(0, Math.trunc(Number(mistakesValue) || 0));
-  const previous = db.completions[list.signature];
+  const completedAt = new Date().toISOString();
+  const ids = new Set(list.words.map((word) => word.id));
 
   return {
     ...db,
-    completions: {
-      ...db.completions,
-      [list.signature]: {
-        completedAt: new Date().toISOString(),
-        // 同一份清单多次练习时保留更好的那一轮成绩
-        attempts: previous ? Math.min(previous.attempts, attempts) : attempts,
-        mistakes: previous ? Math.min(previous.mistakes, mistakes) : mistakes,
-      },
-    },
+    words: db.words.map((word) =>
+      ids.has(word.id) ? { ...word, completedAt } : word,
+    ),
   };
 }

@@ -9,6 +9,7 @@ function word(id: number): WordRecord {
     meaning: `释义 ${id}`,
     createdAt: "2024-01-01T00:00:00.000Z",
     updatedAt: "2024-01-01T00:00:00.000Z",
+    completedAt: null,
   };
 }
 

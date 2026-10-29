@@ -102,7 +102,18 @@ function openDatabase(): Promise<IDBDatabase> {
   return promise;
 }
 
-async function readState(): Promise<AppDatabase | null> {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * 读回本地数据；`upgraded` 表示磁盘上还是旧版本，迁移后的快照应该落盘一次，
+ * 否则每次打开页面都要从 v1 重新迁移（重排过的时间戳会被旧记录拉回去）。
+ */
+async function readState(): Promise<{
+  state: AppDatabase | null;
+  upgraded: boolean;
+}> {
   const database = await openDatabase();
 
   return new Promise((resolve, reject) => {
@@ -116,7 +127,20 @@ async function readState(): Promise<AppDatabase | null> {
       reject(error);
       return;
     }
-    request.onsuccess = () => resolve(normalizeDatabase(request.result));
+    request.onsuccess = () => {
+      const state = normalizeDatabase(request.result);
+      const storedVersion = isRecord(request.result)
+        ? Number(request.result.version)
+        : Number.NaN;
+
+      resolve({
+        state,
+        upgraded:
+          state !== null &&
+          (storedVersion !== state.version ||
+            (isRecord(request.result) && isRecord(request.result.completions))),
+      });
+    };
     request.onerror = () =>
       reject(request.error ?? new Error("读取本地数据失败"));
   });
@@ -194,8 +218,9 @@ export function ensureLoaded(): Promise<void> {
       const stored = await readState();
       connectChannel();
 
-      if (stored) {
-        snapshot = stored;
+      if (stored.state) {
+        snapshot = stored.state;
+        if (stored.upgraded) queueWrite(snapshot);
       } else {
         snapshot = createEmptyDatabase();
         queueWrite(snapshot);
@@ -236,12 +261,12 @@ export function removeWord(id: number): void {
 }
 
 /**
- * 批量收录：一条都不新增时不写盘、不广播，免得无意义地扰动其他标签页。
+ * 批量收录：新词或重排词才写盘、广播，免得无意义地扰动其他标签页。
  */
 export function intakeWords(intake: ParsedIntake): IntakeSummary {
   const result = applyIntake(requireDatabase(), intake);
 
-  if (result.summary.added.length > 0) {
+  if (result.summary.added.length > 0 || result.summary.requeued.length > 0) {
     commit(result.db);
   }
 
@@ -256,10 +281,6 @@ export function updateFeedbackMode(mode: FeedbackMode): void {
   commit(setFeedbackMode(requireDatabase(), mode));
 }
 
-export function markListComplete(
-  index: number,
-  attempts: number,
-  mistakes: number,
-): void {
-  commit(completeStudyList(requireDatabase(), index, attempts, mistakes));
+export function markListComplete(index: number): void {
+  commit(completeStudyList(requireDatabase(), index));
 }

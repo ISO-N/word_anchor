@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { normalizeDatabase, parseBackup, serializeBackup } from "@/lib/backup";
 import {
+  applyIntake,
+  completeStudyList,
   createEmptyDatabase,
+  createWord,
+  getListOverview,
   setFeedbackMode,
   setListSize,
 } from "@/lib/data";
@@ -12,6 +16,16 @@ function legacyDatabase(settings: Record<string, unknown>) {
     words: [],
     settings,
     completions: {},
+  };
+}
+
+function legacyWord(id: number, term: string) {
+  return {
+    id,
+    term,
+    meaning: `${term} 的释义`,
+    createdAt: `2024-01-01T00:00:0${id}.000Z`,
+    updatedAt: `2024-01-01T00:00:0${id}.000Z`,
   };
 }
 
@@ -56,5 +70,76 @@ describe("反馈方式的向后兼容", () => {
       listSize: 6,
       feedbackMode: "manual",
     });
+  });
+});
+
+describe("完成记录迁移到单词", () => {
+  const COMPLETED_AT = "2024-02-01T09:00:00.000Z";
+
+  function legacyWithCompletion() {
+    return {
+      version: 1,
+      words: [1, 2, 3].map((id) => legacyWord(id, `word-${id}`)),
+      settings: { listSize: 3, feedbackMode: "instant" },
+      completions: {
+        "1-2-3": { completedAt: COMPLETED_AT, attempts: 5, mistakes: 1 },
+      },
+    };
+  }
+
+  it("v1 的清单签名会摊到组内每个词上，导出的数据里不再有 completions", () => {
+    const db = normalizeDatabase(legacyWithCompletion())!;
+
+    expect(db.version).toBe(2);
+    expect("completions" in db).toBe(false);
+    expect(db.words.map((word) => word.completedAt)).toEqual([
+      COMPLETED_AT,
+      COMPLETED_AT,
+      COMPLETED_AT,
+    ]);
+    expect(getListOverview(db).lists[0].status).toBe("completed");
+  });
+
+  it("迁移时用 createdAt 兜底抓取时间，升级后第一次发送不会把存量词重排", () => {
+    const db = normalizeDatabase(legacyWithCompletion())!;
+
+    expect(db.words[0].lastCapturedAt).toBe(db.words[0].createdAt);
+    expect(parseBackup(serializeBackup(db)).words[0].lastCapturedAt).toBe(
+      db.words[0].createdAt,
+    );
+  });
+
+  it("重排过的顺序与完成状态能原样往返", () => {
+    const done = completeStudyList(
+      ["one", "two", "three"].reduce(
+        (db, term) => createWord(db, term, `${term} 的释义`),
+        createEmptyDatabase(),
+      ),
+      1,
+    );
+    const { db: requeued } = applyIntake(done, {
+      entries: [
+        { term: "one", meaning: "one 的释义", capturedAt: "2024-05-01T00:00:00.000Z" },
+      ],
+      rejected: [],
+    });
+
+    const reloaded = parseBackup(serializeBackup(requeued));
+
+    expect(reloaded.words.map((word) => word.term)).toEqual([
+      "two",
+      "three",
+      "one",
+    ]);
+    expect(reloaded.words.at(-1)?.completedAt).toBeNull();
+    expect(getListOverview(reloaded).lists[0].status).toBe("ready");
+  });
+
+  it("来自更新版本的备份仍然被拒绝", () => {
+    expect(() =>
+      parseBackup(
+        JSON.stringify({ app: "word-anchor", version: 3, words: [] }),
+      ),
+    ).toThrow("备份文件来自更新版本的词锚");
   });
 });

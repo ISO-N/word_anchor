@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -13,6 +14,7 @@ PACKAGE = Path(__file__).resolve().parents[1] / "word_anchor_sync"
 sys.path.insert(0, str(PACKAGE))
 
 import capture  # noqa: E402
+import queue_store  # noqa: E402
 import wire  # noqa: E402
 
 
@@ -82,6 +84,51 @@ class WireTest(unittest.TestCase):
 
         self.assertEqual(len(word["term"]), wire.MAX_TERM_LENGTH)
         self.assertEqual(len(word["meaning"]), wire.MAX_MEANING_LENGTH)
+
+    def test_captured_at_is_optional_and_kept_when_present(self):
+        stamp = "2024-05-01T09:00:00.000+00:00"
+        payload = wire.encode_payload(
+            [
+                {"term": "lucid", "meaning": "清晰", "capturedAt": stamp},
+                {"term": "vivid", "meaning": "生动的"},
+            ]
+        )
+        words = wire.decode_payload(payload)["words"]
+
+        # 词锚靠它区分「重发」与「又忘了一次」，缺省时干脆不写这个键
+        self.assertEqual(words[0]["capturedAt"], stamp)
+        self.assertNotIn("capturedAt", words[1])
+
+
+class QueueStoreTest(unittest.TestCase):
+    """队列只写临时目录，不往仓库里落文件。"""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.path = Path(self.temp.name) / "queue.json"
+        self._original_path = queue_store.queue_path
+        queue_store.queue_path = lambda: self.path
+
+    def tearDown(self):
+        queue_store.queue_path = self._original_path
+        self.temp.cleanup()
+
+    def test_recapture_refreshes_timestamp_and_marks_pending_again(self):
+        queue_store.add("Lucid", "清晰易懂的", 1)
+        first = queue_store.pending()[0]
+        queue_store.mark_sent(["Lucid"])
+
+        self.assertEqual(queue_store.pending(), [])
+
+        queue_store.add("lucid", "清晰易懂的", 1)
+        again = queue_store.pending()
+
+        self.assertEqual(len(queue_store.load()["items"]), 1)
+        self.assertEqual(len(again), 1)
+        self.assertIsNone(again[0]["sentAt"])
+        # 毫秒精度：同一秒内再次抓取也能与上一次区分开
+        self.assertGreaterEqual(again[0]["capturedAt"], first["capturedAt"])
+        self.assertIn(".", again[0]["capturedAt"])
 
 
 class CaptureTest(unittest.TestCase):

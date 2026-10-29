@@ -44,6 +44,7 @@ function makeWords(count: number): WordRecord[] {
     meaning: `释义 ${index + 1}`,
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
+    completedAt: null,
   }));
 }
 

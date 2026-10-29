@@ -21,7 +21,10 @@ export function DataBackup() {
   const [error, setError] = useState("");
 
   const wordCount = data?.words.length ?? 0;
-  const completionCount = data ? Object.keys(data.completions).length : 0;
+  /** 完成状态按单词记，这里报的是「练过多少个词」而不是清单数 */
+  const practicedCount = data
+    ? data.words.filter((word) => word.completedAt).length
+    : 0;
 
   function handleExport() {
     if (!data) return;
@@ -77,7 +80,7 @@ export function DataBackup() {
 
       <div className={styles.stats}>
         <span className={styles.stat}>{wordCount} 个单词</span>
-        <span className={styles.stat}>{completionCount} 份完成记录</span>
+        <span className={styles.stat}>{practicedCount} 个词练过</span>
         <span className={`${styles.stat} ${styles.statSafe}`}>
           <ShieldCheck size={13} strokeWidth={1.8} />
           不上传任何服务器

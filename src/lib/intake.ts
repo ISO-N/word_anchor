@@ -9,7 +9,8 @@ import type {
  * 收录的「线格式」v1。
  *
  * 一份 payload 长这样：
- *   {"v":1,"source":"anki","words":[{"term":"lucid","meaning":"清晰易懂的"}]}
+ *   {"v":1,"source":"anki","words":[{"term":"lucid","meaning":"清晰易懂的","capturedAt":"2024-05-01T09:00:00.000+00:00"}]}
+ * `capturedAt` 是可选字段：词锚靠它区分「重发」（时间没变）与「又忘了」（时间更新）。
  * 编码是 UTF-8 的 base64url（无 padding）。
  *
  * 两条通道共用同一份编码：
@@ -72,6 +73,7 @@ export function encodeInboxPayload(entries: IntakeEntry[]): string {
       words: entries.map((entry) => ({
         term: entry.term,
         meaning: entry.meaning,
+        ...(entry.capturedAt ? { capturedAt: entry.capturedAt } : {}),
       })),
     }),
   );
@@ -131,6 +133,10 @@ export function decodeInboxPayload(encoded: string): ParsedIntake {
     entries.push({
       term: item.term,
       meaning: typeof item.meaning === "string" ? item.meaning : "",
+      // 抓取时间是可选字段：旧版插件没有它，识别不出重发也不影响收录
+      ...(typeof item.capturedAt === "string" && item.capturedAt
+        ? { capturedAt: item.capturedAt }
+        : {}),
     });
   });
 
@@ -188,19 +194,24 @@ export function parseIntakeText(raw: string): ParsedIntake {
 /** 横幅与面板共用的一句话报数，保证两处口径一致 */
 export function describeIntake(summary: IntakeSummary): string {
   const added = summary.added.length;
+  const requeued = summary.requeued.length;
   const duplicates = summary.duplicates.length;
   const rejected = summary.rejected.length;
   const parts: string[] = [];
 
   if (added > 0) {
     parts.push(`已收录 ${added} 个单词`);
-  } else if (duplicates > 0) {
-    parts.push(`这 ${duplicates} 个单词都已在词库中，没有新增`);
-  } else {
-    parts.push("没有收录到单词");
   }
-
-  if (added > 0 && duplicates > 0) {
+  if (requeued > 0) {
+    parts.push(`${requeued} 个单词重新排到了队尾`);
+  }
+  if (added === 0 && requeued === 0) {
+    parts.push(
+      duplicates > 0
+        ? `这 ${duplicates} 个单词都已在词库中，没有新增`
+        : "没有收录到单词",
+    );
+  } else if (duplicates > 0) {
     parts.push(`跳过 ${duplicates} 个已在词库中`);
   }
   if (rejected > 0) {

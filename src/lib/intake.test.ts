@@ -26,7 +26,7 @@ function rawPayload(value: unknown): string {
 }
 
 function summaryOf(partial: Partial<IntakeSummary>): IntakeSummary {
-  return { added: [], duplicates: [], rejected: [], ...partial };
+  return { added: [], duplicates: [], requeued: [], rejected: [], ...partial };
 }
 
 describe("深链 payload", () => {
@@ -113,6 +113,36 @@ describe("深链 payload", () => {
 
     expect(decoded.entries).toEqual([{ term: "lucid", meaning: "" }]);
   });
+
+  it("抓取时间随条目往返，缺失或类型不对时干脆不带这个字段", () => {
+    const entries: IntakeEntry[] = [
+      {
+        term: "lucid",
+        meaning: "清晰易懂的",
+        capturedAt: "2024-05-01T09:00:00.000+00:00",
+      },
+    ];
+
+    expect(decodeInboxPayload(encodeInboxPayload(entries)).entries).toEqual(
+      entries,
+    );
+
+    const decoded = decodeInboxPayload(
+      rawPayload({
+        v: 1,
+        words: [
+          { term: "lucid", meaning: "清晰易懂的", capturedAt: 42 },
+          { term: "vivid", meaning: "生动的", capturedAt: "" },
+        ],
+      }),
+    );
+
+    expect(decoded.entries).toEqual([
+      { term: "lucid", meaning: "清晰易懂的" },
+      { term: "vivid", meaning: "生动的" },
+    ]);
+    expect(decoded.rejected).toEqual([]);
+  });
 });
 
 describe("location.hash", () => {
@@ -185,8 +215,22 @@ describe("收录结果文案", () => {
       describeIntake(
         summaryOf({
           added: [
-            { id: 1, term: "a", meaning: "b", createdAt: "", updatedAt: "" },
-            { id: 2, term: "c", meaning: "d", createdAt: "", updatedAt: "" },
+            {
+              id: 1,
+              term: "a",
+              meaning: "b",
+              createdAt: "",
+              updatedAt: "",
+              completedAt: null,
+            },
+            {
+              id: 2,
+              term: "c",
+              meaning: "d",
+              createdAt: "",
+              updatedAt: "",
+              completedAt: null,
+            },
           ],
           duplicates: ["e"],
         }),
@@ -204,5 +248,39 @@ describe("收录结果文案", () => {
         }),
       ),
     ).toBe("没有收录到单词，1 条无法收录。");
+  });
+
+  it("重排的词单独报数，也能和新增、跳过一起出现", () => {
+    expect(describeIntake(summaryOf({ requeued: ["a", "b"] }))).toBe(
+      "2 个单词重新排到了队尾。",
+    );
+
+    expect(
+      describeIntake(
+        summaryOf({
+          requeued: ["a"],
+          duplicates: ["b", "c"],
+        }),
+      ),
+    ).toBe("1 个单词重新排到了队尾，跳过 2 个已在词库中。");
+
+    expect(
+      describeIntake(
+        summaryOf({
+          added: [
+            {
+              id: 1,
+              term: "a",
+              meaning: "b",
+              createdAt: "",
+              updatedAt: "",
+              completedAt: null,
+            },
+          ],
+          requeued: ["d"],
+          rejected: [{ term: "x", reason: "释义为空" }],
+        }),
+      ),
+    ).toBe("已收录 1 个单词，1 个单词重新排到了队尾，1 条无法收录。");
   });
 });

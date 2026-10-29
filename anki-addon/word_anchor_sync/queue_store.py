@@ -1,6 +1,7 @@
 """待收录队列：`user_files/queue.json`。
 
-- 按单词（忽略大小写）去重；重复抓到时更新释义并把 `sentAt` 清空
+- 按单词（忽略大小写）去重；重复抓到时更新释义、刷新 `capturedAt`，并把 `sentAt` 清空
+  （“又忘了”与“重发”就靠 `capturedAt` 区分：词锚只把时间更新的当成新一次抓取）
 - 原子写盘（临时文件 + os.replace），Anki 崩在写入中途也不会留下半个 JSON
 - 放在 `user_files/` 里，插件升级不会把队列清掉
 """
@@ -23,7 +24,8 @@ def queue_path() -> Path:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    # 毫秒精度：同一秒内再按一次「重来」也能和上次的抓取时间区分开
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 
 
 def load() -> dict:

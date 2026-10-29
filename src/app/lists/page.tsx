@@ -140,6 +140,7 @@ function ListsView() {
           <p className={styles.fifo}>
             最早的单词先进入 LIST 01，排满 {settings.listSize}{" "}
             个后开启下一份；修改每组数量会立即重新编排，编号也可能变化。
+            Anki 里又按了一次「重来」的词会被挪到队尾，最后一组会再练它一次。
           </p>
 
           <div

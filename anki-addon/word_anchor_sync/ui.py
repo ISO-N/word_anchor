@@ -84,7 +84,11 @@ def setup_menu() -> None:
 
 
 def _entries(items, conf: dict) -> list:
-    """队列里的原始文本 → 真正要发送的 term / meaning（顺手洗掉字段自带的标签）。"""
+    """队列里的原始文本 → 真正要发送的 term / meaning（顺手洗掉字段自带的标签）。
+
+    `capturedAt` 原样带走：词锚靠它区分「重新发送全部」这种重发（时间没变，
+    只去重）与「又按了一次重来」（时间更新，把词挪到队尾重练）。
+    """
     term_field = str(conf.get("term_field", ""))
     meaning_field = str(conf.get("meaning_field", ""))
     term_prefixes = conf.get("strip_term_prefixes") or capture.DEFAULT_TERM_PREFIXES
@@ -92,8 +96,9 @@ def _entries(items, conf: dict) -> list:
         conf.get("strip_meaning_prefixes") or capture.DEFAULT_MEANING_PREFIXES
     )
 
-    return [
-        capture.clean_entry(
+    entries = []
+    for item in items:
+        entry = capture.clean_entry(
             item["term"],
             item.get("meaning", ""),
             term_field,
@@ -101,8 +106,11 @@ def _entries(items, conf: dict) -> list:
             term_prefixes,
             meaning_prefixes,
         )
-        for item in items
-    ]
+        if item.get("capturedAt"):
+            entry["capturedAt"] = str(item["capturedAt"])
+        entries.append(entry)
+
+    return entries
 
 
 def _write_clipboard(entries, raw_terms) -> None:

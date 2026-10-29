@@ -420,7 +420,7 @@ export function PracticeSession({
       setCompleted(true);
 
       try {
-        markListComplete(listIndex, attempts, mistakes);
+        markListComplete(listIndex);
       } catch (error) {
         setCompletionError(
           error instanceof Error ? error.message : "保存学习记录失败",

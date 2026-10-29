@@ -3,6 +3,10 @@
 与站点 `src/lib/intake.ts` 严格一致：任何一个字段的改动都必须两边同时改，
 两边各有一份测试守住它（`src/lib/intake.test.ts` / `tests/test_wire.py`）。
 
+单词条目长这样（`capturedAt` 可选，旧插件没有）：
+
+    {"term": "lucid", "meaning": "清晰易懂的", "capturedAt": "2024-05-01T09:00:00.000+00:00"}
+
 这个模块只依赖标准库 —— 不要在这里 import aqt / anki，
 否则它就没法脱离 Anki 跑单测了。
 """
@@ -35,21 +39,32 @@ def normalize_site_url(value: str) -> str:
 
 
 def encode_payload(words) -> str:
-    """把词条编成 base64url（无 padding）的 JSON。"""
+    """把词条编成 base64url（无 padding）的 JSON。
+
+    `capturedAt` 是可选字段：带上它，词锚才能区分「重新发送全部」这种重发
+    （时间没变）与「又按了一次重来」（时间更新），只有后者会把词挪到队尾。
+    """
     body = {
         "v": WIRE_VERSION,
         "source": "anki",
-        "words": [
-            {
-                "term": truncate(str(word["term"]), MAX_TERM_LENGTH),
-                "meaning": truncate(str(word["meaning"]), MAX_MEANING_LENGTH),
-            }
-            for word in list(words)[:MAX_ENTRIES]
-        ],
+        "words": [_encode_entry(word) for word in list(words)[:MAX_ENTRIES]],
     }
     raw = json.dumps(body, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+
+def _encode_entry(word) -> dict:
+    entry = {
+        "term": truncate(str(word["term"]), MAX_TERM_LENGTH),
+        "meaning": truncate(str(word["meaning"]), MAX_MEANING_LENGTH),
+    }
+
+    captured_at = word.get("capturedAt") if hasattr(word, "get") else None
+    if captured_at:
+        entry["capturedAt"] = str(captured_at)
+
+    return entry
 
 
 def clipboard_envelope(words) -> str:

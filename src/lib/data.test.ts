@@ -49,6 +49,9 @@ function seed(count: number): AppDatabase {
   );
 }
 
+/** Anki 侧的一条抓取时间；只要比库里记得的更新就算「又忘了」 */
+const CAPTURED_AT = "2024-05-01T09:00:00.000+00:00";
+
 describe("清单编排", () => {
   it("25 个词、每组 5 个 → 5 份清单", () => {
     const { lists } = getListOverview(seed(25));
@@ -159,30 +162,53 @@ describe("反馈方式设置", () => {
 });
 
 describe("完成记录", () => {
-  it("同一份清单重复练习时保留更好的一轮成绩", () => {
-    const db = seed(5);
-    const once = completeStudyList(db, 1, 7, 3);
-    const twice = completeStudyList(once, 1, 5, 1);
-    const signature = getStudyList(twice, 1)!.signature;
-    const record = twice.completions[signature];
+  it("练完一份清单时，组内每个词都记上完成时间", () => {
+    const db = completeStudyList(seed(5), 1);
+    const { lists } = getListOverview(db);
 
-    expect(record.attempts).toBe(5);
-    expect(record.mistakes).toBe(1);
-    expect(getStudyList(twice, 1)?.status).toBe("completed");
+    expect(lists[0].status).toBe("completed");
+    expect(lists[0].completedAt).not.toBeNull();
+    expect(lists[0].words.every((word) => word.completedAt)).toBe(true);
   });
 
-  it("练习记录按清单签名关联，不会串到别的清单", () => {
-    const db = seed(10);
-    const completed = completeStudyList(db, 2, 4, 0);
-    const { lists } = getListOverview(completed);
+  it("只影响被练的那一组，别的组的词不受牵连", () => {
+    const { lists } = getListOverview(completeStudyList(seed(10), 2));
 
     expect(lists[0].status).toBe("ready");
     expect(lists[1].status).toBe("completed");
-    expect(lists[1].completedAt).not.toBeNull();
+    expect(lists[0].words.every((word) => word.completedAt === null)).toBe(true);
+  });
+
+  it("重排之后老清单仍是已完成，含重排词的末组回到待练习", () => {
+    const done = [1, 2, 3].reduce(
+      (db, index) => completeStudyList(db, index),
+      seed(15),
+    );
+    expect(getListOverview(done).lists.map((list) => list.status)).toEqual([
+      "completed",
+      "completed",
+      "completed",
+    ]);
+
+    const { db, summary } = applyIntake(done, {
+      entries: [
+        { term: TERMS[2], meaning: "新的释义", capturedAt: CAPTURED_AT },
+      ],
+      rejected: [],
+    });
+
+    expect(summary.requeued).toEqual([TERMS[2]]);
+    expect(db.words[db.words.length - 1].term).toBe(TERMS[2]);
+    expect(getListOverview(db).lists.map((list) => list.status)).toEqual([
+      "completed",
+      "completed",
+      "ready",
+    ]);
+    expect(getListOverview(db).lists[2].words.at(-1)?.term).toBe(TERMS[2]);
   });
 
   it("不存在的清单编号会抛错", () => {
-    expect(() => completeStudyList(seed(5), 9, 1, 0)).toThrow("清单不存在");
+    expect(() => completeStudyList(seed(5), 9)).toThrow("清单不存在");
   });
 });
 
@@ -267,17 +293,149 @@ describe("批量收录", () => {
     expect(summary.rejected).toEqual([]);
   });
 
-  it("已在词库中的词跳过，保留原有释义", () => {
+  it("重发（抓取时间没变）只去重，保留原有释义与顺序", () => {
+    const before = applyIntake(createEmptyDatabase(), {
+      entries: [
+        { term: "serendipity", meaning: "旧释义", capturedAt: CAPTURED_AT },
+      ],
+      rejected: [],
+    }).db;
+
+    const { db, summary } = applyIntake(before, {
+      entries: [
+        { term: "serendipity", meaning: "新释义", capturedAt: CAPTURED_AT },
+      ],
+      rejected: [],
+    });
+
+    expect(summary.added).toEqual([]);
+    expect(summary.duplicates).toEqual(["serendipity"]);
+    expect(summary.requeued).toEqual([]);
+    expect(db).toBe(before);
+    expect(db.words[0].meaning).toBe("旧释义");
+  });
+
+  it("更旧的抓取时间也不算又忘一次，不挪位", () => {
+    const before = applyIntake(createEmptyDatabase(), {
+      entries: [{ term: "lucid", meaning: "清晰易懂的", capturedAt: CAPTURED_AT }],
+      rejected: [],
+    }).db;
+
+    const { db, summary } = applyIntake(before, {
+      entries: [
+        {
+          term: "lucid",
+          meaning: "清晰易懂的",
+          capturedAt: "2020-01-01T00:00:00.000+00:00",
+        },
+      ],
+      rejected: [],
+    });
+
+    expect(summary.duplicates).toEqual(["lucid"]);
+    expect(db).toBe(before);
+  });
+
+  it("新的抓取时间 = 又忘了一次：挪到队尾并清掉完成标记", () => {
+    const done = completeStudyList(seed(5), 1);
+    const { db, summary } = applyIntake(done, {
+      entries: [{ term: TERMS[2], meaning: "新释义", capturedAt: CAPTURED_AT }],
+      rejected: [],
+    });
+
+    expect(summary.added).toEqual([]);
+    expect(summary.duplicates).toEqual([]);
+    expect(summary.requeued).toEqual([TERMS[2]]);
+    expect(db.words.map((word) => word.term)).toEqual([
+      TERMS[0],
+      TERMS[1],
+      TERMS[3],
+      TERMS[4],
+      TERMS[2],
+    ]);
+    expect(db.words[4].meaning).toBe(`${TERMS[2]} 的释义`);
+    expect(db.words[4].completedAt).toBeNull();
+    expect(db.words[4].lastCapturedAt).toBe(CAPTURED_AT);
+    /* 组成变了而且含没练过的词，所以整组回到待练习 */
+    expect(getListOverview(db).lists[0].status).toBe("ready");
+  });
+
+  it("手工粘贴没有时间戳时，也当作又忘了一次", () => {
     const before = createWord(createEmptyDatabase(), "Serendipity", "旧释义");
     const { db, summary } = applyIntake(before, {
       entries: [{ term: "serendipity", meaning: "新释义" }],
       rejected: [],
     });
 
-    expect(summary.added).toEqual([]);
-    expect(summary.duplicates).toEqual(["serendipity"]);
-    expect(db).toBe(before);
+    expect(summary.requeued).toEqual(["serendipity"]);
+    expect(summary.duplicates).toEqual([]);
     expect(db.words[0].meaning).toBe("旧释义");
+  });
+
+  it("已经在队尾的词不再移动，但完成标记会被清掉", () => {
+    const done = completeStudyList(seed(5), 1);
+    const { db, summary } = applyIntake(done, {
+      entries: [{ term: TERMS[4], meaning: "新释义", capturedAt: CAPTURED_AT }],
+      rejected: [],
+    });
+
+    expect(summary.requeued).toEqual([TERMS[4]]);
+    expect(db.words.map((word) => word.term)).toEqual(TERMS.slice(0, 5));
+    expect(db.words[4].completedAt).toBeNull();
+    expect(getListOverview(db).lists[0].status).toBe("ready");
+  });
+
+  it("同一批里同一个词只重排一次", () => {
+    const done = completeStudyList(seed(5), 1);
+    const { db, summary } = applyIntake(done, {
+      entries: [
+        { term: TERMS[2], meaning: "第一次", capturedAt: CAPTURED_AT },
+        {
+          term: TERMS[2],
+          meaning: "第二次",
+          capturedAt: "2024-06-01T09:00:00.000+00:00",
+        },
+      ],
+      rejected: [],
+    });
+
+    expect(summary.requeued).toEqual([TERMS[2]]);
+    expect(summary.duplicates).toEqual([TERMS[2]]);
+    expect(db.words).toHaveLength(5);
+    expect(db.words[4].term).toBe(TERMS[2]);
+  });
+
+  it("新词在前、重排词在最后，批内顺序就是发送顺序", () => {
+    const done = completeStudyList(seed(5), 1);
+    const { db } = applyIntake(done, {
+      entries: [
+        { term: "harbinger", meaning: "预兆" },
+        { term: TERMS[2], meaning: "新释义", capturedAt: CAPTURED_AT },
+        { term: "quaint", meaning: "古雅的" },
+      ],
+      rejected: [],
+    });
+
+    expect(db.words.map((word) => word.term)).toEqual([
+      TERMS[0],
+      TERMS[1],
+      TERMS[3],
+      TERMS[4],
+      "harbinger",
+      "quaint",
+      TERMS[2],
+    ]);
+    expect(db.words.map((word) => word.id)).toEqual([1, 2, 4, 5, 6, 7, 3]);
+  });
+
+  it("新收录的词记下抓取时间", () => {
+    const { db } = applyIntake(createEmptyDatabase(), {
+      entries: [{ term: "lucid", meaning: "清晰易懂的", capturedAt: CAPTURED_AT }],
+      rejected: [],
+    });
+
+    expect(db.words[0].lastCapturedAt).toBe(CAPTURED_AT);
+    expect(db.words[0].completedAt).toBeNull();
   });
 
   it("同一批里的重复只收第一条", () => {
@@ -331,20 +489,29 @@ describe("批量收录", () => {
     });
 
     expect(db).toBe(before);
-    expect(summary).toEqual({ added: [], duplicates: [], rejected: [] });
+    expect(summary).toEqual({
+      added: [],
+      duplicates: [],
+      requeued: [],
+      rejected: [],
+    });
   });
 
   it("不改动传入的数据包", () => {
-    const before = seed(2);
+    const before = completeStudyList(seed(3), 1);
     const snapshot = JSON.parse(JSON.stringify(before)) as AppDatabase;
 
     applyIntake(before, {
-      entries: [{ term: "lucid", meaning: "清晰易懂的" }],
+      entries: [
+        { term: "lucid", meaning: "清晰易懂的" },
+        { term: TERMS[0], meaning: "旧词新释义", capturedAt: CAPTURED_AT },
+      ],
       rejected: [],
     });
 
     expect(before).toEqual(snapshot);
-    expect(before.words).toHaveLength(2);
+    expect(before.words).toHaveLength(3);
+    expect(before.words[0].completedAt).not.toBeNull();
   });
 
   it("收录的词接在后面，不打断已编排的清单", () => {

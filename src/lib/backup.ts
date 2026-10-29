@@ -5,23 +5,33 @@ import {
   MAX_LIST_SIZE,
   MIN_LIST_SIZE,
 } from "@/lib/data";
-import type {
-  AppDatabase,
-  CompletionRecord,
-  FeedbackMode,
-  WordRecord,
-} from "@/lib/types";
+import type { AppDatabase, FeedbackMode, WordRecord } from "@/lib/types";
 
 const BACKUP_APP = "word-anchor";
+
+/** v1 的完成记录：按清单签名（组内单词 id 串）记账，只用于迁移 */
+type LegacyCompletion = { completedAt: string };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function toTimestamp(value: unknown): string | null {
+  return typeof value === "string" && value ? value : null;
+}
+
+/** 两个时间戳取更晚的那个；ISO 字符串可以直接比大小 */
+function laterOf(a: string | null, b: string | null): string | null {
+  if (!a) return b;
+  if (!b) return a;
+  return a > b ? a : b;
+}
+
 function toWordRecord(value: unknown): WordRecord | null {
   if (!isRecord(value)) return null;
 
-  const { id, term, meaning, createdAt, updatedAt } = value;
+  const { id, term, meaning, createdAt, updatedAt, completedAt, lastCapturedAt } =
+    value;
   if (typeof id !== "number" || !Number.isFinite(id)) return null;
   if (typeof term !== "string" || !term) return null;
   if (typeof meaning !== "string") return null;
@@ -34,21 +44,17 @@ function toWordRecord(value: unknown): WordRecord | null {
     meaning,
     createdAt: created,
     updatedAt: typeof updatedAt === "string" ? updatedAt : created,
+    completedAt: toTimestamp(completedAt),
+    lastCapturedAt: toTimestamp(lastCapturedAt),
   };
 }
 
-function toCompletionRecord(value: unknown): CompletionRecord | null {
+function toLegacyCompletion(value: unknown): LegacyCompletion | null {
   if (!isRecord(value)) return null;
-  if (typeof value.completedAt !== "string") return null;
 
-  const attempts = Number(value.attempts);
-  const mistakes = Number(value.mistakes);
-
-  return {
-    completedAt: value.completedAt,
-    attempts: Number.isFinite(attempts) ? Math.max(1, Math.trunc(attempts)) : 1,
-    mistakes: Number.isFinite(mistakes) ? Math.max(0, Math.trunc(mistakes)) : 0,
-  };
+  return typeof value.completedAt === "string"
+    ? { completedAt: value.completedAt }
+    : null;
 }
 
 function toListSize(value: unknown): number {
@@ -68,35 +74,71 @@ function toFeedbackMode(value: unknown): FeedbackMode {
 }
 
 /**
+ * v1 → v2 迁移：v1 把「这份清单练完了」记在清单签名上，现在按单词记。
+ *
+ * 用当前的数组顺序与每组单词数重新分组，命中签名的组就给组内每个词补上
+ * `completedAt`，于是升级后原有清单仍然是「已完成」。
+ *
+ * 顺带给缺 `lastCapturedAt` 的词补 `createdAt`：升级后第一次发送带时间戳的
+ * 批次不会把存量词整体重排一遍（真的又忘了的词抓取时间一定晚于入库时间）。
+ */
+function migrateToWordCompletions(
+  words: WordRecord[],
+  listSize: number,
+  completions: Record<string, LegacyCompletion>,
+  legacy: boolean,
+): WordRecord[] {
+  const inherited = new Map<number, string>();
+
+  if (legacy) {
+    for (let offset = 0; offset < words.length; offset += listSize) {
+      const group = words.slice(offset, offset + listSize);
+      const record = completions[group.map((word) => word.id).join("-")];
+      if (!record) continue;
+
+      group.forEach((word) => inherited.set(word.id, record.completedAt));
+    }
+  }
+
+  return words.map((word) => ({
+    ...word,
+    completedAt: laterOf(word.completedAt ?? null, inherited.get(word.id) ?? null),
+    lastCapturedAt:
+      word.lastCapturedAt ?? (legacy ? word.createdAt : null),
+  }));
+}
+
+/**
  * 宽松解析：用于从 IndexedDB 读回数据（容忍旧版本/损坏字段），
  * 无法识别时返回 null，绝不抛错。
  */
 export function normalizeDatabase(value: unknown): AppDatabase | null {
   if (!isRecord(value) || !Array.isArray(value.words)) return null;
 
-  const words = value.words
+  /* 数组顺序就是 FIFO 队列顺序，不再按 id 重排：重排过的词要留在队尾 */
+  const parsedWords = value.words
     .map(toWordRecord)
-    .filter((word): word is WordRecord => word !== null)
-    .sort((a, b) => a.id - b.id);
+    .filter((word): word is WordRecord => word !== null);
 
-  const completions: Record<string, CompletionRecord> = {};
-  if (isRecord(value.completions)) {
+  const legacy = Number(value.version) < DATABASE_VERSION || isRecord(value.completions);
+  const completions: Record<string, LegacyCompletion> = {};
+  if (legacy && isRecord(value.completions)) {
     Object.entries(value.completions).forEach(([signature, record]) => {
-      const normalized = toCompletionRecord(record);
+      const normalized = toLegacyCompletion(record);
       if (signature && normalized) completions[signature] = normalized;
     });
   }
 
   const settings = isRecord(value.settings) ? value.settings : {};
+  const listSize = toListSize(settings.listSize);
 
   return {
     version: DATABASE_VERSION,
-    words,
+    words: migrateToWordCompletions(parsedWords, listSize, completions, legacy),
     settings: {
-      listSize: toListSize(settings.listSize),
+      listSize,
       feedbackMode: toFeedbackMode(settings.feedbackMode),
     },
-    completions,
   };
 }
 
@@ -145,7 +187,6 @@ export function serializeBackup(db: AppDatabase): string {
       exportedAt: new Date().toISOString(),
       words: db.words,
       settings: db.settings,
-      completions: db.completions,
     },
     null,
     2,

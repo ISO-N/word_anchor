@@ -22,6 +22,7 @@ const WORDS: WordRecord[] = [
     meaning: "意外的好运",
     createdAt: "2024-01-01T00:00:00.000Z",
     updatedAt: "2024-01-01T00:00:00.000Z",
+    completedAt: null,
   },
   {
     id: 2,
@@ -29,6 +30,7 @@ const WORDS: WordRecord[] = [
     meaning: "清晰易懂的",
     createdAt: "2024-01-01T00:00:00.000Z",
     updatedAt: "2024-01-01T00:00:00.000Z",
+    completedAt: null,
   },
 ];
 
@@ -45,6 +47,7 @@ const BOARD_WORDS: WordRecord[] = [
   meaning: `释义 ${index + 1}`,
   createdAt: "2024-01-01T00:00:00.000Z",
   updatedAt: "2024-01-01T00:00:00.000Z",
+  completedAt: null,
 }));
 
 function session(feedbackMode: FeedbackMode, words: WordRecord[] = WORDS) {
@@ -115,7 +118,7 @@ describe("练习反馈方式", () => {
     expect(
       await screen.findByRole("dialog", {}, { timeout: 3000 }),
     ).toBeInTheDocument();
-    expect(markListComplete).toHaveBeenCalledWith(1, 2, 0);
+    expect(markListComplete).toHaveBeenCalledWith(1);
   });
 
   it("手动判定：判错后保留连线，改对再判定", async () => {
@@ -141,7 +144,7 @@ describe("练习反馈方式", () => {
     expect(
       await screen.findByRole("dialog", {}, { timeout: 3000 }),
     ).toBeInTheDocument();
-    expect(markListComplete).toHaveBeenCalledWith(1, 4, 2);
+    expect(markListComplete).toHaveBeenCalledWith(1);
   });
 
   it("即时反馈：没有判定按钮，连满即收束", async () => {
@@ -158,7 +161,7 @@ describe("练习反馈方式", () => {
     expect(
       await screen.findByRole("dialog", {}, { timeout: 3000 }),
     ).toBeInTheDocument();
-    expect(markListComplete).toHaveBeenCalledWith(1, 2, 0);
+    expect(markListComplete).toHaveBeenCalledWith(1);
   });
 
   it("切换方式不重置本轮：切到即时后立刻显示结论", async () => {

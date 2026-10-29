@@ -78,6 +78,14 @@ export function WordIntake() {
     }
   }
 
+  const requeuedPreview = useMemo(() => {
+    if (!summary || summary.requeued.length === 0) return "";
+    const shown = summary.requeued.slice(0, 5).join("、");
+    return summary.requeued.length > 5
+      ? `${shown} 等 ${summary.requeued.length} 个`
+      : shown;
+  }, [summary]);
+
   const duplicatePreview = useMemo(() => {
     if (!summary || summary.duplicates.length === 0) return "";
     const shown = summary.duplicates.slice(0, 5).join("、");
@@ -159,6 +167,11 @@ export function WordIntake() {
         <div className={styles.result} role="status">
           <p className={styles.status}>{describeIntake(summary)}</p>
 
+          {requeuedPreview && (
+            <p className={styles.detail}>
+              已排到队尾（最后一组会再练一次）：{requeuedPreview}
+            </p>
+          )}
           {duplicatePreview && (
             <p className={styles.detail}>已在词库中：{duplicatePreview}</p>
           )}

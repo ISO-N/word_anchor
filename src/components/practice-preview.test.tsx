@@ -10,6 +10,7 @@ const WORDS: WordRecord[] = [
     meaning: "意外的好运",
     createdAt: "2024-01-01T00:00:00.000Z",
     updatedAt: "2024-01-01T00:00:00.000Z",
+    completedAt: null,
   },
   {
     id: 2,
@@ -17,6 +18,7 @@ const WORDS: WordRecord[] = [
     meaning: "清晰易懂的",
     createdAt: "2024-01-01T00:00:00.000Z",
     updatedAt: "2024-01-01T00:00:00.000Z",
+    completedAt: null,
   },
   {
     id: 3,
@@ -24,6 +26,7 @@ const WORDS: WordRecord[] = [
     meaning: "锚；使固定",
     createdAt: "2024-01-01T00:00:00.000Z",
     updatedAt: "2024-01-01T00:00:00.000Z",
+    completedAt: null,
   },
 ];
 

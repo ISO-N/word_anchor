@@ -60,6 +60,36 @@ describe("深链收录", () => {
     expect(getSnapshot()?.words).toHaveLength(1);
   });
 
+  it("新的一次抓取会把已收录的词挪到队尾", async () => {
+    window.location.hash = `#inbox=${encodeInboxPayload([
+      { term: "lucid", meaning: "清晰易懂的" },
+      { term: "vivid", meaning: "生动的" },
+    ])}`;
+
+    render(<AnkiIntake />);
+    await screen.findByText("已收录 2 个单词。");
+
+    const again = encodeInboxPayload([
+      {
+        term: "lucid",
+        meaning: "清晰易懂的",
+        capturedAt: "2024-06-01T09:00:00.000+00:00",
+      },
+    ]);
+
+    await act(async () => {
+      window.location.hash = `#inbox=${again}`;
+    });
+
+    expect(
+      await screen.findByText(/1 个单词重新排到了队尾/),
+    ).toBeInTheDocument();
+    expect(getSnapshot()?.words.map((word) => word.term)).toEqual([
+      "vivid",
+      "lucid",
+    ]);
+  });
+
   it("坏 payload 报可读的错误，也清掉地址栏", async () => {
     window.location.hash = "#inbox=!!!!";
 
