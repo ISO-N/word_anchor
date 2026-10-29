@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 import unittest
@@ -98,6 +99,31 @@ class WireTest(unittest.TestCase):
         # 词锚靠它区分「重发」与「又忘了一次」，缺省时干脆不写这个键
         self.assertEqual(words[0]["capturedAt"], stamp)
         self.assertNotIn("capturedAt", words[1])
+
+
+class ManifestTest(unittest.TestCase):
+    """版本范围必须让当前 Anki 肯加载这个插件。
+
+    Anki 的 `AddonMeta.compatible()`（qt/aqt/addons.py）里有这么一段：
+        if max is not None and max < 0 and _current_version > abs(max):
+            return False
+    也就是负数 `max_point_version` 会被读成「abs(n) 是最后一个支持版本」，
+    所以 -1 等于「只支持 Anki 2.1.1」——插件会被静默跳过，附加组件对话框
+    提示「这个附加组件需要旧版本的 Anki」。无上限就用 0（或正数）。
+    """
+
+    def setUp(self):
+        self.manifest = json.loads((PACKAGE / "manifest.json").read_text("utf-8"))
+
+    def test_max_point_version_is_not_a_negative_cap(self):
+        self.assertGreaterEqual(self.manifest.get("max_point_version", 0), 0)
+
+    def test_min_point_version_accepts_current_anki(self):
+        # 当前 Anki 的 int_version() 远大于 50，这里只锁住「不要写成大数字」
+        self.assertEqual(self.manifest.get("min_point_version"), 50)
+
+    def test_package_matches_folder_name(self):
+        self.assertEqual(self.manifest.get("package"), PACKAGE.name)
 
 
 class QueueStoreTest(unittest.TestCase):
