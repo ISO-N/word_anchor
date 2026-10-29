@@ -7,6 +7,7 @@ import styles from "./site-header.module.css";
 
 const NAV_ITEMS = [
   { href: "/lists", label: "学习清单" },
+  { href: "/review", label: "趣味复习" },
   { href: "/words", label: "单词库" },
 ];
 
@@ -39,7 +40,7 @@ export function SiteHeader() {
       <div className={`shell ${styles.inner}`}>
         <Link className={styles.brand} href="/" aria-label="词锚首页" translate="no">
           <AnchorMark />
-          词锚
+          <span className={styles.brandText}>词锚</span>
         </Link>
 
         <nav className={styles.nav} aria-label="主导航">

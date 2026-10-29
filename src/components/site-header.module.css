@@ -27,12 +27,14 @@
 
 .brand {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 9px;
   color: var(--ink);
   font-size: 1.125rem;
   font-weight: 600;
   letter-spacing: 0.01em;
+  white-space: nowrap;
 }
 
 .mark {
@@ -53,6 +55,7 @@
   border-radius: var(--r-sm);
   color: var(--muted);
   font-size: var(--t-sm);
+  white-space: nowrap;
   transition: color var(--dur-fast) var(--ease),
     background var(--dur-fast) var(--ease);
 }
@@ -96,8 +99,9 @@
     gap: 10px;
   }
 
-  .brand {
-    font-size: 1rem;
+  /* 窄屏只留锚形图标：品牌文字会让三项导航挤不下 */
+  .brandText {
+    display: none;
   }
 
   .link {
