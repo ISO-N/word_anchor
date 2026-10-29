@@ -76,6 +76,12 @@
     outline-offset: 2px;
   }
 
+  /* skip link 的落点与对话框的焦点归还都指向内容区：
+     滚动/阅读本身即是反馈，不要给整页高度画一圈焦点环 */
+  .site-main:focus-visible {
+    outline: none;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;

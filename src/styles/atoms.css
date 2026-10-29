@@ -9,11 +9,6 @@
     padding-block-end: 56px;
   }
 
-  /* skip link 的落点是内容区而不是控件：滚动本身即是反馈 */
-  .site-main:focus-visible {
-    outline: none;
-  }
-
   .sr-only {
     position: absolute;
     width: 1px;
