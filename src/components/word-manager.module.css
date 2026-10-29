@@ -238,6 +238,36 @@
   font-variant-numeric: tabular-nums;
 }
 
+.colReview {
+  width: 96px;
+}
+
+.reviewStat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  color: var(--ink-soft);
+  font-family: var(--font-term);
+  font-size: var(--t-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.reviewRate {
+  color: var(--muted);
+  font-family: var(--font-sans);
+  font-size: var(--t-xs);
+}
+
+.reviewRate::before {
+  margin-inline-end: 5px;
+  content: "·";
+}
+
+.reviewEmpty {
+  color: var(--muted);
+  font-size: var(--t-xs);
+}
+
 .colList {
   width: 104px;
 }
@@ -368,6 +398,10 @@
   }
 
   .colDate {
+    display: none;
+  }
+
+  .colReview {
     display: none;
   }
 

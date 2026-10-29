@@ -492,6 +492,9 @@ export function WordManager({
                 </th>
                 <th scope="col">单词</th>
                 <th scope="col">释义</th>
+                <th className={styles.colReview} scope="col">
+                  复习
+                </th>
                 <th className={styles.colList} scope="col">
                   清单
                 </th>
@@ -536,6 +539,24 @@ export function WordManager({
                     </td>
                     <td>
                       <span className={styles.meaning}>{word.meaning}</span>
+                    </td>
+                    <td className={styles.colReview}>
+                      {word.review && word.review.seen > 0 ? (
+                        <span
+                          className={styles.reviewStat}
+                          aria-label={`已复习 ${word.review.seen} 次，答对 ${word.review.correct} 次`}
+                        >
+                          {word.review.correct}/{word.review.seen}
+                          <span className={styles.reviewRate}>
+                            {Math.round(
+                              (word.review.correct / word.review.seen) * 100,
+                            )}
+                            %
+                          </span>
+                        </span>
+                      ) : (
+                        <span className={styles.reviewEmpty}>—</span>
+                      )}
                     </td>
                     <td className={styles.colList}>
                       {listIndex !== undefined && (

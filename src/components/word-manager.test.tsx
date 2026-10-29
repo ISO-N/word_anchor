@@ -477,3 +477,33 @@ describe("单词的批量删除", () => {
     );
   });
 });
+
+describe("单词库的复习统计列", () => {
+  it("没复习过的词显示破折号", () => {
+    renderManager(makeWords(2));
+
+    expect(
+      screen.getByRole("columnheader", { name: "复习" }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("—")).toHaveLength(2);
+  });
+
+  it("复习过的词显示答对次数、总次数与正确率", () => {
+    const words = makeWords(1).map((word) => ({
+      ...word,
+      review: {
+        seen: 4,
+        correct: 3,
+        lastReviewedAt: "2026-02-01T00:00:00.000Z",
+        lastWrongAt: "2026-02-01T00:00:00.000Z",
+      },
+    }));
+
+    renderManager(words);
+
+    const stat = screen.getByLabelText("已复习 4 次，答对 3 次");
+
+    expect(stat).toHaveTextContent("3/4");
+    expect(stat).toHaveTextContent("75%");
+  });
+});
