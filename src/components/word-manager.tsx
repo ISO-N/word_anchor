@@ -19,12 +19,14 @@ import { Pager } from "@/components/ui/pager";
 import { MAX_MEANING_LENGTH, MAX_TERM_LENGTH } from "@/lib/data";
 import { formatShortDate } from "@/lib/format";
 import { paginate, parsePageParam } from "@/lib/pagination";
-import { addWord, editWord, removeWord } from "@/lib/store";
+import { addWord, editWord, removeWord, removeWords } from "@/lib/store";
 import type { WordRecord } from "@/lib/types";
 import { usePageReveal } from "@/lib/use-page-reveal";
 import styles from "./word-manager.module.css";
 
 const SEARCH_DEBOUNCE_MS = 250;
+/** 批量删除对话框里最多列几个词，剩下的折成「等 N 个」 */
+const BULK_PREVIEW_LIMIT = 8;
 
 type FormState = { term: string; meaning: string };
 type FieldErrors = { term?: string; meaning?: string };
@@ -58,6 +60,17 @@ export function WordManager({
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState("");
   const [pendingDelete, setPendingDelete] = useState<WordRecord | null>(null);
+  /**
+   * 批量删除的选中项：id → 单词本身。
+   * 记 term 是为了让 id 被新词复用时不会悄悄选中别人；跳页、换搜索词都不清空。
+   */
+  const [selectedTerms, setSelectedTerms] = useState<Map<number, string>>(
+    () => new Map(),
+  );
+  /** 打开确认框时冻结的一份快照：对话框里看到的就是点下去那一刻的选中项 */
+  const [bulkTargets, setBulkTargets] = useState<WordRecord[] | null>(null);
+  const [bulkError, setBulkError] = useState("");
+  const [notice, setNotice] = useState("");
   /** 打开表单时把焦点交给谁：触屏落在「取消」，避免直接弹出软键盘 */
   const [focusTarget, setFocusTarget] = useState<"term" | "cancel">(
     "cancel",
@@ -67,6 +80,8 @@ export function WordManager({
   const meaningRef = useRef<HTMLInputElement | null>(null);
   const formCancelRef = useRef<HTMLButtonElement | null>(null);
   const deleteCancelRef = useRef<HTMLButtonElement | null>(null);
+  const bulkCancelRef = useRef<HTMLButtonElement | null>(null);
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
 
   const replaceParams = useCallback(
     (mutate: (params: URLSearchParams) => void) => {
@@ -118,8 +133,38 @@ export function WordManager({
     [filteredWords, page],
   );
 
+  /* 选中项按词库顺序展开，删除时传的 id 因此是稳定的升序 */
+  const selectedWords = useMemo(
+    () => words.filter((word) => selectedTerms.get(word.id) === word.term),
+    [words, selectedTerms],
+  );
+
+  const pageSelectedCount = useMemo(
+    () =>
+      pageData.items.filter(
+        (word) => selectedTerms.get(word.id) === word.term,
+      ).length,
+    [pageData.items, selectedTerms],
+  );
+
+  const allPageSelected =
+    pageData.items.length > 0 && pageSelectedCount === pageData.items.length;
+  const somePageSelected = pageSelectedCount > 0 && !allPageSelected;
+  /** 选中了但不在本页：提示一下，避免删掉看不见的词 */
+  const hiddenSelectedCount = selectedWords.length - pageSelectedCount;
+  const hasUnselectedFiltered = filteredWords.some(
+    (word) => selectedTerms.get(word.id) !== word.term,
+  );
+  const bulkCount = bulkTargets?.length ?? 0;
+
   const tableRef = useRef<HTMLDivElement | null>(null);
   const requestReveal = usePageReveal(pageData.page, tableRef);
+
+  /* indeterminate 没有对应的 JSX 属性，只能命令式设置 */
+  useEffect(() => {
+    const input = selectAllRef.current;
+    if (input) input.indeterminate = somePageSelected;
+  }, [somePageSelected]);
 
   /* 序号按词库全序计算，不再在 map 里 findIndex（O(n²)） */
   const orderById = useMemo(
@@ -212,6 +257,8 @@ export function WordManager({
   function confirmDelete() {
     if (!pendingDelete) return;
 
+    setNotice("");
+
     try {
       removeWord(pendingDelete.id);
     } catch (caught) {
@@ -220,6 +267,70 @@ export function WordManager({
       );
     } finally {
       setPendingDelete(null);
+    }
+  }
+
+  function toggleWordSelection(word: WordRecord, selected: boolean) {
+    setNotice("");
+    setSelectedTerms((current) => {
+      const next = new Map(current);
+      if (selected) next.set(word.id, word.term);
+      else next.delete(word.id);
+      return next;
+    });
+  }
+
+  function togglePageSelection(selected: boolean) {
+    setNotice("");
+    setSelectedTerms((current) => {
+      const next = new Map(current);
+      pageData.items.forEach((word) => {
+        if (selected) next.set(word.id, word.term);
+        else next.delete(word.id);
+      });
+      return next;
+    });
+  }
+
+  /** 全选当前筛选结果（搜索时就是「全部搜索结果」）；已有的选中不丢 */
+  function selectAllFiltered() {
+    setNotice("");
+    setSelectedTerms((current) => {
+      const next = new Map(current);
+      filteredWords.forEach((word) => next.set(word.id, word.term));
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setNotice("");
+    setSelectedTerms(new Map());
+  }
+
+  function openBulkDelete() {
+    if (selectedWords.length === 0) return;
+    setBulkError("");
+    setNotice("");
+    setBulkTargets(selectedWords);
+  }
+
+  function closeBulkDelete() {
+    setBulkTargets(null);
+    setBulkError("");
+  }
+
+  function confirmBulkDelete() {
+    if (!bulkTargets) return;
+    const ids = bulkTargets.map((word) => word.id);
+
+    try {
+      removeWords(ids);
+      setBulkTargets(null);
+      setBulkError("");
+      setSelectedTerms(new Map());
+      setNotice(`已删除 ${ids.length} 个单词。`);
+    } catch (caught) {
+      setBulkError(caught instanceof Error ? caught.message : "删除失败");
     }
   }
 
@@ -281,6 +392,52 @@ export function WordManager({
         </div>
       </div>
 
+      {notice && (
+        <p className={styles.notice} role="status" aria-live="polite">
+          {notice}
+        </p>
+      )}
+
+      {selectedWords.length > 0 && (
+        <div className={styles.bulkBar} role="group" aria-label="批量删除">
+          <p className={styles.bulkCount} role="status" aria-live="polite">
+            已选 <strong>{selectedWords.length}</strong> 个词
+            {hiddenSelectedCount > 0 && (
+              <span className={styles.bulkHint}>
+                （{hiddenSelectedCount} 个不在当前页或搜索结果中）
+              </span>
+            )}
+          </p>
+
+          <div className={styles.bulkActions}>
+            {hasUnselectedFiltered && (
+              <button
+                type="button"
+                className={buttonClass({ variant: "ghost", size: "sm" })}
+                onClick={selectAllFiltered}
+              >
+                选中全部 {filteredWords.length} 个单词
+              </button>
+            )}
+            <button
+              type="button"
+              className={buttonClass({ variant: "ghost", size: "sm" })}
+              onClick={clearSelection}
+            >
+              清空选择
+            </button>
+            <button
+              type="button"
+              className={buttonClass({ variant: "danger", size: "sm" })}
+              onClick={openBulkDelete}
+            >
+              <Trash2 size={15} strokeWidth={1.8} aria-hidden="true" />
+              删除选中
+            </button>
+          </div>
+        </div>
+      )}
+
       {words.length === 0 ? (
         <div className="empty-state">
           <span className="empty-state-icon">
@@ -316,6 +473,20 @@ export function WordManager({
           <table className={styles.table}>
             <thead>
               <tr>
+                <th className={styles.colSelect} scope="col">
+                  <label className={styles.selectCellLabel}>
+                    <input
+                      ref={selectAllRef}
+                      type="checkbox"
+                      className={styles.checkbox}
+                      aria-label="选中本页全部单词"
+                      checked={allPageSelected}
+                      onChange={(event) =>
+                        togglePageSelection(event.target.checked)
+                      }
+                    />
+                  </label>
+                </th>
                 <th className={styles.colIndex} scope="col">
                   #
                 </th>
@@ -335,9 +506,26 @@ export function WordManager({
             <tbody>
               {pageData.items.map((word) => {
                 const listIndex = listIndexByWordId.get(word.id);
+                const isSelected = selectedTerms.get(word.id) === word.term;
 
                 return (
-                  <tr key={word.id}>
+                  <tr
+                    key={word.id}
+                    className={isSelected ? styles.rowSelected : undefined}
+                  >
+                    <td className={styles.colSelect}>
+                      <label className={styles.selectCellLabel}>
+                        <input
+                          type="checkbox"
+                          className={styles.checkbox}
+                          aria-label={`选择 ${word.term}`}
+                          checked={isSelected}
+                          onChange={(event) =>
+                            toggleWordSelection(word, event.target.checked)
+                          }
+                        />
+                      </label>
+                    </td>
                     <td className={styles.colIndex}>
                       {String(orderById.get(word.id) ?? 0).padStart(2, "0")}
                     </td>
@@ -540,6 +728,51 @@ export function WordManager({
           </>
         }
       />
+
+      <Dialog
+        open={bulkTargets !== null}
+        onClose={closeBulkDelete}
+        title={`删除选中的 ${bulkCount} 个单词？`}
+        description={`这 ${bulkCount} 个词会从词库中移除，之后的学习清单会重新编排。`}
+        initialFocus={bulkCancelRef}
+        footer={
+          <>
+            <button
+              ref={bulkCancelRef}
+              type="button"
+              className={buttonClass({ variant: "ghost" })}
+              onClick={closeBulkDelete}
+            >
+              再想想
+            </button>
+            <button
+              type="button"
+              className={buttonClass({ variant: "danger" })}
+              onClick={confirmBulkDelete}
+            >
+              删除 {bulkCount} 个词
+            </button>
+          </>
+        }
+      >
+        <p className={styles.dialogTerms}>
+          {(bulkTargets ?? [])
+            .slice(0, BULK_PREVIEW_LIMIT)
+            .map((word, index) => (
+              <span key={word.id}>
+                {index > 0 && "、"}
+                <span translate="no">{word.term}</span>
+              </span>
+            ))}
+          {bulkCount > BULK_PREVIEW_LIMIT && ` 等 ${bulkCount} 个`}
+        </p>
+
+        {bulkError && (
+          <p className="field-error" role="alert">
+            {bulkError}
+          </p>
+        )}
+      </Dialog>
     </>
   );
 }

@@ -5,6 +5,7 @@ import {
   createEmptyDatabase,
   createWord,
   deleteWord,
+  deleteWords,
   getListIndexByWordId,
   getListOverview,
   getStudyList,
@@ -267,6 +268,65 @@ describe("单词校验", () => {
     expect(removed.words).toHaveLength(5);
     expect(lists).toHaveLength(1);
     expect(lists[0].words[0].term).toBe(TERMS[1]);
+  });
+});
+
+describe("批量删除", () => {
+  it("只删指定的词，其余保持原有 FIFO 顺序", () => {
+    const removed = deleteWords(seed(6), [2, 4, 6]);
+
+    expect(removed.words.map((word) => word.term)).toEqual([
+      TERMS[0],
+      TERMS[2],
+      TERMS[4],
+    ]);
+    expect(removed.words.map((word) => word.id)).toEqual([1, 3, 5]);
+  });
+
+  it("删除后清单按新顺序重新分组与编号", () => {
+    const removed = deleteWords(seed(12), [2]);
+    const { lists } = getListOverview(removed);
+    const indexByWordId = getListIndexByWordId(removed);
+
+    expect(removed.words).toHaveLength(11);
+    expect(lists.map((list) => list.size)).toEqual([5, 5, 5]);
+    expect(lists[2].words).toHaveLength(1);
+    expect(indexByWordId.get(6)).toBe(1);
+    expect(indexByWordId.get(7)).toBe(2);
+    expect(indexByWordId.get(12)).toBe(3);
+  });
+
+  it("重复的 id 只删一次", () => {
+    const removed = deleteWords(seed(4), [2, 2, 2]);
+
+    expect(removed.words.map((word) => word.id)).toEqual([1, 3, 4]);
+  });
+
+  it("空的或非整数的 id 列表会被拒绝", () => {
+    expect(() => deleteWords(seed(3), [])).toThrow("没有选中任何单词");
+    expect(() => deleteWords(seed(3), [1.5])).toThrow("没有选中任何单词");
+  });
+
+  it("一个都不存在时报错，不产生新词库", () => {
+    expect(() => deleteWords(seed(3), [99])).toThrow("单词不存在");
+  });
+
+  it("失效 id 与有效 id 混合时只删有效的那些", () => {
+    const removed = deleteWords(seed(4), [2, 99]);
+
+    expect(removed.words.map((word) => word.id)).toEqual([1, 3, 4]);
+  });
+
+  it("幸存词的完成记录与设置都不变", () => {
+    const db = setListSize(completeStudyList(seed(6), 1), 8);
+    const removed = deleteWords(db, [1]);
+
+    expect(removed.settings.listSize).toBe(8);
+    expect(removed.settings.feedbackMode).toBe("instant");
+    expect(removed.words[0].id).toBe(2);
+    expect(removed.words[0].completedAt).toBe(db.words[1].completedAt);
+    expect(removed.words[0].completedAt).not.toBeNull();
+    expect(removed.words[4].completedAt).toBeNull();
   });
 });
 

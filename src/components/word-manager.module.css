@@ -94,6 +94,70 @@
   border-top: 1px solid var(--rule);
 }
 
+/* ---------- 批量删除 ---------- */
+
+.notice {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-left: 2px solid var(--pine);
+  border-radius: var(--r-sm);
+  background: var(--pine-wash);
+  color: var(--ink-soft);
+  font-size: var(--t-sm);
+}
+
+.bulkBar {
+  display: flex;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  border: 1px solid var(--rule-strong);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--paper-sunk) 70%, var(--slip));
+}
+
+.bulkCount {
+  display: flex;
+  margin: 0;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px;
+  color: var(--ink-soft);
+  font-size: var(--t-sm);
+}
+
+.bulkCount strong {
+  color: var(--ink);
+  font-family: var(--font-term);
+  font-size: var(--t-lg);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.bulkHint {
+  color: var(--muted);
+  font-size: var(--t-xs);
+}
+
+.bulkActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dialogTerms {
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--font-term);
+  font-size: var(--t-md);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
 /* ---------- 表格 ---------- */
 
 .tableWrap {
@@ -124,6 +188,39 @@
 
 .table tbody tr:hover {
   background: color-mix(in srgb, var(--slip) 65%, transparent);
+}
+
+.table tbody tr.rowSelected {
+  background: color-mix(in srgb, var(--accent-wash) 55%, transparent);
+}
+
+.table tbody tr.rowSelected:hover {
+  background: color-mix(in srgb, var(--accent-wash) 80%, transparent);
+}
+
+.colSelect {
+  width: 44px;
+}
+
+.table th.colSelect,
+.table td.colSelect {
+  padding-inline: 2px;
+}
+
+.selectCellLabel {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-sm);
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 .colIndex {
@@ -253,6 +350,14 @@
     flex: 1;
   }
 
+  .bulkActions {
+    width: 100%;
+  }
+
+  .bulkActions > * {
+    flex: 1;
+  }
+
   .table th,
   .table td {
     padding-inline: 8px;
@@ -301,5 +406,15 @@
   .rowButton {
     width: 44px;
     height: 44px;
+  }
+
+  .selectCellLabel {
+    width: 44px;
+    height: 44px;
+  }
+
+  .checkbox {
+    width: 20px;
+    height: 20px;
   }
 }

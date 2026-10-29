@@ -4,6 +4,7 @@ import {
   createEmptyDatabase,
   createWord,
   deleteWord,
+  deleteWords,
   setFeedbackMode,
   setListSize,
   updateWord,
@@ -258,6 +259,11 @@ export function editWord(id: number, term: unknown, meaning: unknown): void {
 
 export function removeWord(id: number): void {
   commit(deleteWord(requireDatabase(), id));
+}
+
+/** 批量删除走同一次 commit：一次写盘、一次广播。 */
+export function removeWords(ids: readonly number[]): void {
+  commit(deleteWords(requireDatabase(), ids));
 }
 
 /**

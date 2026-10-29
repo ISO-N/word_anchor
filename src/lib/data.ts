@@ -268,6 +268,32 @@ export function deleteWord(db: AppDatabase, id: number): AppDatabase {
   return { ...db, words: db.words.filter((word) => word.id !== id) };
 }
 
+/**
+ * 批量删除：一次算出新词库，界面只提交一次快照。
+ *
+ * - 重复 id 只算一次，非整数 id 直接忽略
+ * - 部分 id 已不存在（别的标签页删过）时静默跳过，仍然删掉命中的词
+ * - 一个都没命中才报错，避免「选中项全过期」被当成成功
+ * - 剩余单词保持原有 FIFO 顺序，清单编号因此自动重排
+ */
+export function deleteWords(
+  db: AppDatabase,
+  ids: readonly number[],
+): AppDatabase {
+  const targets = new Set(ids.filter((id) => Number.isInteger(id)));
+
+  if (targets.size === 0) {
+    throw new Error("没有选中任何单词");
+  }
+
+  const remaining = db.words.filter((word) => !targets.has(word.id));
+  if (remaining.length === db.words.length) {
+    throw new Error("单词不存在");
+  }
+
+  return { ...db, words: remaining };
+}
+
 export function setListSize(db: AppDatabase, listSizeValue: unknown): AppDatabase {
   const listSize = Number(listSizeValue);
 
