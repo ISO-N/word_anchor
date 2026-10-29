@@ -276,5 +276,55 @@ class LabelPrefixTest(unittest.TestCase):
         self.assertEqual(cleaned, {"term": "lucid", "meaning": "清晰易懂的"})
 
 
+class DeckWhitelistTest(unittest.TestCase):
+    """白名单是纯字符串逻辑，不需要 Anki：牌组名从卡片里拿出来后才进来。"""
+
+    def test_empty_whitelist_allows_every_deck(self):
+        # 旧行为：没配白名单就不限制
+        self.assertTrue(capture.deck_allowed("随便一个牌组", []))
+        self.assertTrue(capture.deck_allowed("随便一个牌组", None))
+        self.assertTrue(capture.deck_allowed("", []))
+
+    def test_exact_name_and_its_subdecks_pass(self):
+        whitelist = ["英语"]
+
+        self.assertTrue(capture.deck_allowed("英语", whitelist))
+        self.assertTrue(capture.deck_allowed("英语::单词", whitelist))
+        self.assertTrue(capture.deck_allowed("英语::单词::难词", whitelist))
+        self.assertFalse(capture.deck_allowed("日语", whitelist))
+
+    def test_sibling_sharing_prefix_is_not_a_subdeck(self):
+        # 只有 :: 才算子牌组，「英语」不该把「英语角」带进来
+        self.assertFalse(capture.deck_allowed("英语角", ["英语"]))
+        self.assertFalse(capture.deck_allowed("英语角::单词", ["英语"]))
+
+    def test_subdeck_matching_can_be_disabled(self):
+        self.assertFalse(capture.deck_allowed("英语::单词", ["英语"], False))
+        self.assertTrue(capture.deck_allowed("英语::单词", ["英语::单词"], False))
+        self.assertTrue(capture.deck_allowed("英语", ["英语"], False))
+
+    def test_case_and_surrounding_spaces_are_ignored(self):
+        self.assertTrue(capture.deck_allowed("English", [" english "]))
+        self.assertTrue(capture.deck_allowed("ENGLISH::Words", ["english"]))
+        self.assertTrue(capture.deck_allowed(" 英语 ", ["英语"]))
+
+    def test_hand_written_string_config_works(self):
+        # 用户把配置写成 "英语" 而不是 ["英语"] 也不能崩
+        self.assertTrue(capture.deck_allowed("英语", "英语"))
+        self.assertFalse(capture.deck_allowed("日语", "英语"))
+
+    def test_unreadable_deck_name_is_rejected(self):
+        self.assertFalse(capture.deck_allowed("", ["英语"]))
+        self.assertFalse(capture.deck_allowed(None, ["英语"]))
+
+    def test_normalize_drops_noise(self):
+        self.assertEqual(
+            capture.normalize_whitelist([" 英语 ", "", None, 42, "英语", "English"]),
+            ["英语", "english"],
+        )
+        self.assertEqual(capture.normalize_whitelist([]), [])
+        self.assertEqual(capture.normalize_whitelist(None), [])
+
+
 if __name__ == "__main__":
     unittest.main()

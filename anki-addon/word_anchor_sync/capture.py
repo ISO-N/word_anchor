@@ -44,6 +44,10 @@ DEFAULT_MEANING_PREFIXES = (
     "Translation",
 )
 
+# 牌组白名单：留空 = 收录所有牌组。勾中父牌组视为连子牌组一起勾
+# （「英语」命中「英语::单词」，但不命中「英语角」）。
+DECK_SEPARATOR = "::"
+
 LABEL_SEPARATORS = "：:—–－-· \t\n"
 BRACKET_PAIRS = (
     ("【", "】"),
@@ -164,6 +168,49 @@ def pick_fields(names, term_field: str, meaning_field: str):
         meaning_name = next((name for name in names if name != term_name), "")
 
     return term_name, meaning_name
+
+
+def normalize_whitelist(values) -> list:
+    """白名单配置 → 去空、去重、折叠大小写后的名字列表。
+
+    手写配置时很容易写成 `"英语"` 而不是 `["英语"]`，这里一并容错：
+    看到不是字符串的项就跳过，不让一条坏配置把整个收录流程打断。
+    """
+    if isinstance(values, str):
+        values = [values]
+
+    entries = []
+    for value in values or ():
+        if not isinstance(value, str):
+            continue
+        name = value.strip().casefold()
+        if name and name not in entries:
+            entries.append(name)
+
+    return entries
+
+
+def deck_allowed(deck_name: str, whitelist, include_subdecks: bool = True) -> bool:
+    """白名单为空时不限制；否则牌组名必须是其中之一（或其中一个的子牌组）。
+
+    读不出牌组名（空串）而白名单又非空时挡下：宁可少收，
+    也不要把语法卡、句子卡混进单词队列。
+    """
+    entries = normalize_whitelist(whitelist)
+    if not entries:
+        return True
+
+    name = (deck_name or "").strip().casefold()
+    if not name:
+        return False
+
+    for entry in entries:
+        if name == entry:
+            return True
+        if include_subdecks and name.startswith(entry + DECK_SEPARATOR):
+            return True
+
+    return False
 
 
 def entry_from_card(

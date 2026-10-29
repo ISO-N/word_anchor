@@ -1,6 +1,7 @@
 """词锚同步 · 复习时按「重来」，把单词和释义攒进队列。
 
-1. 复习中按「重来」（ease = 1）→ 抓取笔记里的单词与释义 → 追加进 user_files/queue.json
+1. 复习中按「重来」（ease = 1）→ 先过牌组白名单 → 抓取笔记里的单词与释义
+   → 追加进 `user_files/queue.json`
 2. Tools → 词锚 Word Anchor →「打开词锚收录」或「复制到剪贴板」
 3. 词锚页面把这一批词写进浏览器本地词库
 
@@ -14,7 +15,7 @@ from aqt import gui_hooks
 from aqt.qt import QTimer
 from aqt.utils import tooltip
 
-from . import capture, config, log, queue_store, ui
+from . import capture, config, decks, log, queue_store, ui
 
 _hinted_missing_site = False
 
@@ -29,6 +30,14 @@ def _on_answer(reviewer, card, ease) -> None:
 
         conf = config.load()
         if not conf.get("capture_enabled", True):
+            return
+
+        # 白名单为空时这里恒为 True，行为和旧版一致
+        if not capture.deck_allowed(
+            decks.name(card),
+            conf.get("deck_whitelist"),
+            bool(conf.get("deck_whitelist_subdecks", True)),
+        ):
             return
 
         entry = capture.entry_from_card(

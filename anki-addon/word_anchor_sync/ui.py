@@ -16,16 +16,19 @@ from aqt.qt import (
     QFormLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMenu,
     QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    Qt,
     QUrl,
     QVBoxLayout,
 )
 from aqt.utils import showInfo, showWarning, tooltip
 
-from . import capture, config, log, queue_store, wire
+from . import capture, config, decks, log, queue_store, wire
 
 MENU_TITLE = "词锚 Word Anchor"
 MENU_OBJECT = "word_anchor_menu"
@@ -260,6 +263,28 @@ def open_preview() -> None:
 
 # ---------------------------------------------------------------- 设置
 
+# 配置里还留着、但词库里已经没这个名字的牌组，也得列出来，否则用户没法取消勾选
+STALE_DECK_SUFFIX = "（已不存在）"
+
+
+def _deck_rows(names, selected) -> list:
+    """→ [(显示名, 真实牌组名, 是否勾选)]，勾选的排前面。"""
+    wanted = capture.normalize_whitelist(selected)
+    matched = set()
+    rows = []
+
+    for name in names:
+        checked = name.casefold() in wanted
+        if checked:
+            matched.add(name.casefold())
+        rows.append((name, name, checked))
+
+    for key in wanted:
+        if key not in matched:
+            rows.append((key + STALE_DECK_SUFFIX, key, True))
+
+    return [row for row in rows if row[2]] + [row for row in rows if not row[2]]
+
 
 def _field_names() -> list:
     names: list = []
@@ -295,7 +320,8 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         conf = config.load()
         self.setWindowTitle("词锚 Word Anchor · 设置")
-        self.setMinimumWidth(520)
+        self.setMinimumWidth(560)
+        self.resize(600, 640)
 
         layout = QVBoxLayout(self)
         form = QFormLayout()
@@ -323,6 +349,30 @@ class SettingsDialog(QDialog):
         hint.setWordWrap(True)
         layout.addWidget(hint)
 
+        layout.addWidget(QLabel("牌组白名单", self))
+        deck_hint = QLabel(
+            "只收录勾选的牌组；一个都不勾 = 所有牌组都收。"
+            "勾了父牌组就等于连它的子牌组一起收（「英语」含「英语::单词」）。\n"
+            "改动只影响之后按下的「重来」，队列里已经攒着的条目不会自己消失。",
+            self,
+        )
+        deck_hint.setWordWrap(True)
+        layout.addWidget(deck_hint)
+
+        self.deck_list = QListWidget(self)
+        self.deck_list.setMinimumHeight(150)
+        self.deck_list.setToolTip("点方框勾选；没勾的牌组按「重来」时不会被收录")
+        for display, deck_name, checked in _deck_rows(
+            decks.all_names(), conf.get("deck_whitelist")
+        ):
+            item = QListWidgetItem(display, self.deck_list)
+            item.setData(Qt.ItemDataRole.UserRole, deck_name)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(
+                Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked
+            )
+        layout.addWidget(self.deck_list, 1)
+
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok
             | QDialogButtonBox.StandardButton.Cancel,
@@ -345,10 +395,29 @@ class SettingsDialog(QDialog):
             return
 
         conf = config.load()
-        conf.update({"site_url": url, "term_field": term, "meaning_field": meaning})
+        conf.update(
+            {
+                "site_url": url,
+                "term_field": term,
+                "meaning_field": meaning,
+                "deck_whitelist": self._checked_decks(),
+            }
+        )
         config.save(conf)
         self.accept()
         tooltip("词锚设置已保存", period=2000)
+
+    def _checked_decks(self) -> list:
+        names = []
+        for row in range(self.deck_list.count()):
+            item = self.deck_list.item(row)
+            if item.checkState() != Qt.CheckState.Checked:
+                continue
+            deck_name = item.data(Qt.ItemDataRole.UserRole)
+            if deck_name:
+                names.append(str(deck_name))
+
+        return names
 
 
 def open_settings() -> None:
@@ -367,6 +436,19 @@ def preview_current_card() -> None:
         return
 
     conf = config.load()
+    deck = decks.name(card)
+    if not capture.deck_allowed(
+        deck,
+        conf.get("deck_whitelist"),
+        bool(conf.get("deck_whitelist_subdecks", True)),
+    ):
+        showWarning(
+            "这张卡所在的牌组不在白名单里，按「重来」不会收录。\n\n"
+            "牌组：{}\n\n"
+            "要收录它就打开 设置… 把这个牌组勾上。".format(deck or "（读不出来）")
+        )
+        return
+
     try:
         entry = capture.entry_from_card(
             card,
