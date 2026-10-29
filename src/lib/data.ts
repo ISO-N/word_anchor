@@ -6,11 +6,12 @@ import type {
   ListOverview,
   ParsedIntake,
   RejectedEntry,
+  ReviewStat,
   StudyList,
   WordRecord,
 } from "@/lib/types";
 
-export const DATABASE_VERSION = 2 as const;
+export const DATABASE_VERSION = 3 as const;
 export const DEFAULT_LIST_SIZE = 5;
 export const MIN_LIST_SIZE = 2;
 export const MAX_LIST_SIZE = 20;
@@ -105,6 +106,7 @@ export function createWord(
     updatedAt: now,
     completedAt: null,
     lastCapturedAt: null,
+    review: null,
   };
 
   return { ...db, words: [...db.words, word] };
@@ -187,6 +189,7 @@ export function applyIntake(
         updatedAt: now,
         completedAt: null,
         lastCapturedAt: entry.capturedAt ?? null,
+        review: null,
       };
 
       byTerm.set(key, word);
@@ -255,6 +258,38 @@ export function updateWord(
     ...db,
     words: db.words.map((word) =>
       word.id === id ? { ...word, term, meaning, updatedAt } : word,
+    ),
+  };
+}
+
+/**
+ * 趣味复习答一题：`seen` 必增，答对再增 `correct`；
+ * `lastReviewedAt` 每次都刷新，`lastWrongAt` 只在答错时写入。
+ *
+ * 单词已不存在（别的标签页删了）时原样返回同一个数据包，
+ * 调用方据此跳过写盘与广播。
+ */
+export function recordReviewAnswer(
+  db: AppDatabase,
+  id: number,
+  correct: boolean,
+): AppDatabase {
+  const target = db.words.find((word) => word.id === id);
+  if (!target) return db;
+
+  const now = new Date().toISOString();
+  const previous = target.review ?? null;
+  const review: ReviewStat = {
+    seen: (previous?.seen ?? 0) + 1,
+    correct: (previous?.correct ?? 0) + (correct ? 1 : 0),
+    lastReviewedAt: now,
+    lastWrongAt: correct ? (previous?.lastWrongAt ?? null) : now,
+  };
+
+  return {
+    ...db,
+    words: db.words.map((word) =>
+      word.id === id ? { ...word, review } : word,
     ),
   };
 }

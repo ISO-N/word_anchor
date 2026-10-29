@@ -9,6 +9,7 @@ import {
   getListIndexByWordId,
   getListOverview,
   getStudyList,
+  recordReviewAnswer,
   setFeedbackMode,
   setListSize,
   updateWord,
@@ -591,5 +592,48 @@ describe("批量收录", () => {
       "quaint",
     ]);
     expect(lists[1].isPartial).toBe(true);
+  });
+});
+
+describe("趣味复习统计", () => {
+  it("新词从零开始，第一次答对就是 1/1", () => {
+    const db = seed(2);
+    const answered = recordReviewAnswer(db, 1, true);
+    const review = answered.words[0].review;
+
+    expect(review?.seen).toBe(1);
+    expect(review?.correct).toBe(1);
+    expect(review?.lastWrongAt).toBeNull();
+    expect(Number.isNaN(Date.parse(review?.lastReviewedAt ?? ""))).toBe(false);
+  });
+
+  it("答错后再答对：seen 累加，lastWrongAt 保留", () => {
+    const wrong = recordReviewAnswer(seed(2), 1, false);
+    const wrongAt = wrong.words[0].review?.lastWrongAt;
+    const answered = recordReviewAnswer(wrong, 1, true);
+    const review = answered.words[0].review;
+
+    expect(review?.seen).toBe(2);
+    expect(review?.correct).toBe(1);
+    expect(wrongAt).toBeTruthy();
+    expect(review?.lastWrongAt).toBe(wrongAt);
+  });
+
+  it("未知单词原样返回同一个数据包，不写盘", () => {
+    const db = seed(3);
+
+    expect(recordReviewAnswer(db, 999, true)).toBe(db);
+  });
+
+  it("只改命中的单词，不改动传入的数据包", () => {
+    const before = seed(3);
+    const snapshot = JSON.parse(JSON.stringify(before)) as AppDatabase;
+    const answered = recordReviewAnswer(before, 2, false);
+
+    expect(before).toEqual(snapshot);
+    expect(answered.words[0].review).toBeNull();
+    expect(answered.words[1].review?.seen).toBe(1);
+    expect(answered.words[2].review).toBeNull();
+    expect(answered.words[1].completedAt).toBe(before.words[1].completedAt);
   });
 });

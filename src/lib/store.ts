@@ -5,6 +5,7 @@ import {
   createWord,
   deleteWord,
   deleteWords,
+  recordReviewAnswer,
   setFeedbackMode,
   setListSize,
   updateWord,
@@ -289,4 +290,15 @@ export function updateFeedbackMode(mode: FeedbackMode): void {
 
 export function markListComplete(index: number): void {
   commit(completeStudyList(requireDatabase(), index));
+}
+
+/**
+ * 趣味复习答一题就落盘一次：整局中途关页也不会丢统计。
+ * 单词已被别的标签页删除时纯函数返回同一个快照，这里跳过无意义的写盘与广播。
+ */
+export function recordReviewResult(wordId: number, correct: boolean): void {
+  const current = requireDatabase();
+  const next = recordReviewAnswer(current, wordId, correct);
+
+  if (next !== current) commit(next);
 }

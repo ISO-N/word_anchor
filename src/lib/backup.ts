@@ -5,7 +5,12 @@ import {
   MAX_LIST_SIZE,
   MIN_LIST_SIZE,
 } from "@/lib/data";
-import type { AppDatabase, FeedbackMode, WordRecord } from "@/lib/types";
+import type {
+  AppDatabase,
+  FeedbackMode,
+  ReviewStat,
+  WordRecord,
+} from "@/lib/types";
 
 const BACKUP_APP = "word-anchor";
 
@@ -27,6 +32,26 @@ function laterOf(a: string | null, b: string | null): string | null {
   return a > b ? a : b;
 }
 
+function toReviewStat(value: unknown): ReviewStat | null {
+  if (!isRecord(value)) return null;
+
+  const seen = Math.trunc(Number(value.seen));
+  const correct = Math.trunc(Number(value.correct));
+  const lastReviewedAt = toTimestamp(value.lastReviewedAt);
+
+  /* 没有复习时间、或次数不是正整数：整条记录不可信，当作没复习过 */
+  if (!Number.isFinite(seen) || seen <= 0) return null;
+  if (!Number.isFinite(correct) || correct < 0) return null;
+  if (!lastReviewedAt) return null;
+
+  return {
+    seen,
+    correct: Math.min(correct, seen),
+    lastReviewedAt,
+    lastWrongAt: toTimestamp(value.lastWrongAt),
+  };
+}
+
 function toWordRecord(value: unknown): WordRecord | null {
   if (!isRecord(value)) return null;
 
@@ -46,6 +71,7 @@ function toWordRecord(value: unknown): WordRecord | null {
     updatedAt: typeof updatedAt === "string" ? updatedAt : created,
     completedAt: toTimestamp(completedAt),
     lastCapturedAt: toTimestamp(lastCapturedAt),
+    review: toReviewStat(value.review),
   };
 }
 
@@ -86,11 +112,11 @@ function migrateToWordCompletions(
   words: WordRecord[],
   listSize: number,
   completions: Record<string, LegacyCompletion>,
-  legacy: boolean,
+  fromV1: boolean,
 ): WordRecord[] {
   const inherited = new Map<number, string>();
 
-  if (legacy) {
+  if (fromV1) {
     for (let offset = 0; offset < words.length; offset += listSize) {
       const group = words.slice(offset, offset + listSize);
       const record = completions[group.map((word) => word.id).join("-")];
@@ -104,7 +130,7 @@ function migrateToWordCompletions(
     ...word,
     completedAt: laterOf(word.completedAt ?? null, inherited.get(word.id) ?? null),
     lastCapturedAt:
-      word.lastCapturedAt ?? (legacy ? word.createdAt : null),
+      word.lastCapturedAt ?? (fromV1 ? word.createdAt : null),
   }));
 }
 
@@ -120,9 +146,11 @@ export function normalizeDatabase(value: unknown): AppDatabase | null {
     .map(toWordRecord)
     .filter((word): word is WordRecord => word !== null);
 
-  const legacy = Number(value.version) < DATABASE_VERSION || isRecord(value.completions);
+  /* 只有 v1 才需要把「清单签名」摊到单词上，也只有 v1 才用 createdAt 兜底
+     抓取时间；v2 → v3 只是补版本号，不能把手工词的 lastCapturedAt 改掉 */
+  const fromV1 = Number(value.version) < 2 || isRecord(value.completions);
   const completions: Record<string, LegacyCompletion> = {};
-  if (legacy && isRecord(value.completions)) {
+  if (fromV1 && isRecord(value.completions)) {
     Object.entries(value.completions).forEach(([signature, record]) => {
       const normalized = toLegacyCompletion(record);
       if (signature && normalized) completions[signature] = normalized;
@@ -134,7 +162,7 @@ export function normalizeDatabase(value: unknown): AppDatabase | null {
 
   return {
     version: DATABASE_VERSION,
-    words: migrateToWordCompletions(parsedWords, listSize, completions, legacy),
+    words: migrateToWordCompletions(parsedWords, listSize, completions, fromV1),
     settings: {
       listSize,
       feedbackMode: toFeedbackMode(settings.feedbackMode),

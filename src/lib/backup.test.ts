@@ -90,7 +90,7 @@ describe("完成记录迁移到单词", () => {
   it("v1 的清单签名会摊到组内每个词上，导出的数据里不再有 completions", () => {
     const db = normalizeDatabase(legacyWithCompletion())!;
 
-    expect(db.version).toBe(2);
+    expect(db.version).toBe(3);
     expect("completions" in db).toBe(false);
     expect(db.words.map((word) => word.completedAt)).toEqual([
       COMPLETED_AT,
@@ -138,8 +138,90 @@ describe("完成记录迁移到单词", () => {
   it("来自更新版本的备份仍然被拒绝", () => {
     expect(() =>
       parseBackup(
-        JSON.stringify({ app: "word-anchor", version: 3, words: [] }),
+        JSON.stringify({ app: "word-anchor", version: 4, words: [] }),
       ),
     ).toThrow("备份文件来自更新版本的词锚");
+  });
+});
+
+describe("趣味复习统计", () => {
+  const REVIEWED_AT = "2024-03-01T10:20:30.000Z";
+
+  it("v2 升级到 v3 只补版本号，手工词的 lastCapturedAt 保持 null", () => {
+    const v2 = {
+      version: 2,
+      words: [
+        {
+          ...legacyWord(1, "serendipity"),
+          completedAt: null,
+          lastCapturedAt: null,
+        },
+      ],
+      settings: { listSize: 5, feedbackMode: "instant" },
+    };
+
+    const db = normalizeDatabase(v2)!;
+
+    expect(db.version).toBe(3);
+    expect(db.words[0].lastCapturedAt).toBeNull();
+    expect(db.words[0].review).toBeNull();
+  });
+
+  it("导出再导入保留每个词的复习次数与最近答错时间", () => {
+    const reviewed = {
+      version: 3,
+      words: [
+        {
+          ...legacyWord(1, "serendipity"),
+          completedAt: null,
+          lastCapturedAt: null,
+          review: {
+            seen: 7,
+            correct: 5,
+            lastReviewedAt: REVIEWED_AT,
+            lastWrongAt: REVIEWED_AT,
+          },
+        },
+      ],
+      settings: { listSize: 5, feedbackMode: "instant" },
+    };
+
+    const reloaded = parseBackup(serializeBackup(normalizeDatabase(reviewed)!));
+
+    expect(reloaded.version).toBe(3);
+    expect(reloaded.words[0].review).toEqual({
+      seen: 7,
+      correct: 5,
+      lastReviewedAt: REVIEWED_AT,
+      lastWrongAt: REVIEWED_AT,
+    });
+  });
+
+  it("不可信的复习统计归一为 null，不污染单词本身", () => {
+    const db = normalizeDatabase({
+      version: 3,
+      words: [
+        {
+          ...legacyWord(1, "serendipity"),
+          completedAt: null,
+          review: { seen: "很多", correct: 3, lastReviewedAt: 42 },
+        },
+        {
+          ...legacyWord(2, "lucid"),
+          completedAt: null,
+          review: {
+            seen: 3,
+            correct: 99,
+            lastReviewedAt: REVIEWED_AT,
+            lastWrongAt: null,
+          },
+        },
+      ],
+      settings: { listSize: 5, feedbackMode: "instant" },
+    })!;
+
+    expect(db.words[0].review).toBeNull();
+    /* 答对数不能超过被问到的次数 */
+    expect(db.words[1].review?.correct).toBe(3);
   });
 });
