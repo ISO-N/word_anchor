@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 先跑一遍测试：打出来的安装包必须来自全绿的提交
+      - name: Test
+        run: pnpm verify:all
+
+      - name: Build Windows installer
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "词锚 ${{ github.ref_name }}"
+          releaseBody: |
+            词锚桌面端 Windows 安装包。下载 `Word Anchor_*_x64-setup.exe` 安装即可。
+            数据保存在 `%APPDATA%\top.kariscode.wa\word-anchor.db`。
+          releaseDraft: true
+          prerelease: false
