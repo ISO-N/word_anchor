@@ -627,7 +627,7 @@ export function WordManager({
         open={formOpen}
         onClose={closeForm}
         title={editingId ? "调整这个词" : "记下一个新词"}
-        description="单词与释义保存在这台设备的浏览器里。"
+        description="单词与释义保存在这台电脑的本地词库里。"
         initialFocus={focusTarget === "term" ? termRef : formCancelRef}
       >
         <form onSubmit={submit} noValidate>

@@ -4,7 +4,13 @@ import { useRef, useState } from "react";
 import { Download, ShieldCheck, Trash2, Upload } from "lucide-react";
 import { buttonClass } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { downloadBackup, parseBackup } from "@/lib/backup";
+import {
+  backupFileName,
+  downloadBackup,
+  parseBackup,
+  serializeBackup,
+} from "@/lib/backup";
+import { isTauri, pickBackupText, saveBackupText } from "@/lib/desktop";
 import { clearDatabase, replaceDatabase } from "@/lib/store";
 import type { AppDatabase } from "@/lib/types";
 import { useAppData } from "@/lib/use-app-data";
@@ -26,12 +32,33 @@ export function DataBackup() {
     ? data.words.filter((word) => word.completedAt).length
     : 0;
 
-  function handleExport() {
+  function applyBackupText(text: string) {
+    try {
+      const backup = parseBackup(text);
+      setPending({ kind: "import", backup });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "导入失败");
+    }
+  }
+
+  /** 桌面端走系统「另存为」；浏览器预览退回下载 */
+  async function handleExport() {
     if (!data) return;
     setError("");
     setMessage("");
-    downloadBackup(data);
-    setMessage("已导出备份文件，记得放到你信任的位置。");
+
+    if (!isTauri()) {
+      downloadBackup(data);
+      setMessage("已导出备份文件，记得放到你信任的位置。");
+      return;
+    }
+
+    try {
+      const path = await saveBackupText(serializeBackup(data), backupFileName());
+      if (path) setMessage(`已导出到 ${path}`);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "导出失败");
+    }
   }
 
   async function handleImportFile(file: File | undefined) {
@@ -40,8 +67,26 @@ export function DataBackup() {
     setMessage("");
 
     try {
-      const backup = parseBackup(await file.text());
-      setPending({ kind: "import", backup });
+      applyBackupText(await file.text());
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "导入失败");
+    }
+  }
+
+  /** 桌面端走系统「打开」对话框；浏览器预览退回隐藏的 file input */
+  async function handleImport() {
+    if (!data) return;
+    setError("");
+    setMessage("");
+
+    if (!isTauri()) {
+      inputRef.current?.click();
+      return;
+    }
+
+    try {
+      const picked = await pickBackupText();
+      if (picked) applyBackupText(picked.text);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "导入失败");
     }
@@ -57,7 +102,7 @@ export function DataBackup() {
     } else {
       clearDatabase();
       setError("");
-      setMessage("已清空本浏览器里的数据。");
+      setMessage("已清空这台电脑上的数据。");
     }
 
     setPending(null);
@@ -75,7 +120,8 @@ export function DataBackup() {
       </div>
 
       <p className={styles.text}>
-        换浏览器、换设备或清理站点数据后都看不到这份词库，导出备份是最稳妥的保险。
+        词库只存在这台电脑上：换设备、重装系统或误删应用数据都看不到它，
+        导出备份是最稳妥的保险。
       </p>
 
       <div className={styles.stats}>
@@ -100,7 +146,7 @@ export function DataBackup() {
         <button
           type="button"
           className={buttonClass({ variant: "ghost", size: "sm" })}
-          onClick={() => inputRef.current?.click()}
+          onClick={() => void handleImport()}
           disabled={!data}
         >
           <Upload size={15} strokeWidth={1.8} />
@@ -146,7 +192,7 @@ export function DataBackup() {
         title={isImport ? "用备份覆盖现在词库？" : "清空这台设备上的数据？"}
         description={
           isImport
-            ? `备份里有 ${importCount} 个单词。导入会覆盖当前浏览器中的全部数据，包括练习记录。`
+            ? `备份里有 ${importCount} 个单词。导入会覆盖这台电脑上的全部数据，包括练习记录。`
             : "词库和练习记录都会消失，且无法恢复。清空之前建议先导出一份备份。"
         }
         initialFocus={cancelRef}

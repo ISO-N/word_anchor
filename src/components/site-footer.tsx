@@ -24,7 +24,7 @@ export function SiteFooter() {
           词锚
         </span>
         <span className={styles.note}>
-          数据保存在这台设备的浏览器里，可随时导出备份。
+          词库保存在这台电脑上，可随时导出备份。
         </span>
       </div>
     </footer>

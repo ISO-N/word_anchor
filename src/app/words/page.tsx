@@ -3,6 +3,7 @@
 import { Suspense, useMemo } from "react";
 import { DataBackup } from "@/components/data-backup";
 import { DataPlaceholder } from "@/components/data-placeholder";
+import { DesktopPanel } from "@/components/desktop-panel";
 import { WordManager } from "@/components/word-manager";
 import { getListIndexByWordId } from "@/lib/data";
 import { useAppData } from "@/lib/use-app-data";
@@ -38,6 +39,7 @@ function WordsView() {
         words={data.words}
         listIndexByWordId={listIndexByWordId}
       />
+      <DesktopPanel />
       <DataBackup />
     </div>
   );
