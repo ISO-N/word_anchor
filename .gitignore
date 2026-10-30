@@ -27,3 +27,7 @@ anki-addon/word_anchor_sync/user_files/
 
 # AI
 .pi/
+
+# tauri
+src-tauri/target/
+src-tauri/gen/schemas/
