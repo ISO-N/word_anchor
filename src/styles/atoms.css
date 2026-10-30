@@ -5,8 +5,18 @@
   }
 
   .site-main {
-    min-height: calc(100dvh - var(--header-h) - 200px);
+    /* 内容比屏幕短时，页脚也落在底边，不留一块悬空的纸 */
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
     padding-block-end: 56px;
+  }
+
+  /* 页面的外框：让内部的首屏区块能长到剩余高度 */
+  .page-fill {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
   }
 
   .sr-only {
@@ -27,7 +37,7 @@
     left: 10px;
     z-index: 200;
     padding: 10px 16px;
-    border-radius: var(--r-md);
+    border-radius: var(--r-sm);
     background: var(--ink);
     color: var(--on-ink);
     font-size: var(--t-sm);
@@ -43,39 +53,43 @@
 
   .button {
     display: inline-flex;
-    min-height: 44px;
-    padding: 0 18px;
+    min-height: 36px;
+    padding: 0 16px;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 7px;
     border: 1px solid transparent;
-    border-radius: var(--r-md);
+    border-radius: var(--r-sm);
     font-size: var(--t-sm);
     font-weight: 500;
     line-height: 1;
     white-space: nowrap;
-    transition: background var(--dur) var(--ease),
-      border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+    transition: background var(--dur-fast) var(--ease),
+      border-color var(--dur-fast) var(--ease),
+      color var(--dur-fast) var(--ease),
+      transform 90ms var(--ease);
+  }
+
+  .button:not(:disabled):active {
+    transform: scale(0.98);
   }
 
   .button:disabled {
     cursor: not-allowed;
-    opacity: 0.55;
+    opacity: 0.5;
   }
 
   .button-primary {
-    border-color: var(--ink);
     background: var(--ink);
     color: var(--on-ink);
   }
 
   .button-primary:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--ink) 86%, var(--paper));
-    background: color-mix(in srgb, var(--ink) 86%, var(--paper));
+    background: var(--ink-soft);
   }
 
   .button-ghost {
-    border-color: var(--rule-strong);
+    border-color: var(--control);
     background: transparent;
     color: var(--ink-soft);
   }
@@ -83,23 +97,32 @@
   .button-ghost:hover:not(:disabled) {
     border-color: var(--ink-soft);
     background: var(--slip);
+    color: var(--ink);
   }
 
   .button-danger {
-    border-color: var(--clay);
-    background: var(--clay);
+    background: var(--negative);
     color: var(--on-ink);
   }
 
   .button-danger:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--clay) 86%, var(--paper));
-    background: color-mix(in srgb, var(--clay) 86%, var(--paper));
+    background: color-mix(in srgb, var(--negative) 88%, var(--ink));
   }
 
   .button-small {
-    min-height: 38px;
-    padding: 0 14px;
+    min-height: 30px;
+    padding: 0 12px;
     font-size: var(--t-xs);
+  }
+
+  @media (pointer: coarse) {
+    .button {
+      min-height: 44px;
+    }
+
+    .button-small {
+      min-height: 40px;
+    }
   }
 
   /* ---------- 文本链接 ---------- */
@@ -113,41 +136,42 @@
   }
 
   .text-link svg {
-    transition: transform var(--dur) var(--ease);
+    transition: transform var(--dur-fast) var(--ease);
   }
 
   .text-link:hover {
-    color: var(--accent);
+    color: var(--ink);
   }
 
   .text-link:hover svg {
     transform: translateX(3px);
   }
 
-  /* ---------- 状态 ---------- */
+  /* ---------- 状态 chip ---------- */
 
   .status-pill {
     display: inline-flex;
-    height: 24px;
-    padding: 0 9px;
+    height: 22px;
+    padding: 0 8px;
     flex: 0 0 auto;
     align-items: center;
     gap: 5px;
-    border: 1px solid var(--rule);
+    border: 1px solid transparent;
     border-radius: 999px;
     font-size: var(--t-xs);
     line-height: 1;
     white-space: nowrap;
   }
 
+  /* 待办：描边；已完成：色阶——两者都不是颜色，只是边与底的区别 */
   .status-ready {
-    background: var(--oche-wash);
-    color: var(--oche);
+    border-color: var(--control);
+    color: var(--ink-soft);
   }
 
   .status-completed {
-    background: var(--pine-wash);
-    color: var(--pine);
+    background: var(--active);
+    color: var(--ink-soft);
   }
 
   .status-dot {
@@ -160,12 +184,12 @@
   /* ---------- 页面骨架 ---------- */
 
   .page-shell {
-    padding-block-start: 44px;
+    padding-block-start: 40px;
   }
 
   .page-heading {
     display: flex;
-    margin-bottom: 32px;
+    margin-bottom: 28px;
     align-items: flex-end;
     justify-content: space-between;
     gap: 32px;
@@ -173,16 +197,16 @@
 
   .page-heading h1 {
     margin: 0;
-    font-size: var(--t-3xl);
-    font-weight: 500;
+    font-size: var(--t-2xl);
+    font-weight: 600;
     line-height: 1.15;
-    letter-spacing: -0.015em;
+    letter-spacing: -0.02em;
     text-wrap: balance;
   }
 
   .page-description {
     max-width: var(--readable);
-    margin: 10px 0 0;
+    margin: 8px 0 0;
     color: var(--muted);
     font-size: var(--t-sm);
     text-wrap: pretty;
@@ -190,40 +214,54 @@
 
   .heading-actions {
     display: flex;
-    padding-bottom: 4px;
-    gap: 10px;
+    padding-bottom: 2px;
+    gap: 8px;
   }
 
   @media (max-width: 760px) {
     .page-heading {
       align-items: flex-start;
       flex-direction: column;
-      gap: 18px;
+      gap: 16px;
     }
 
     .heading-actions {
       width: 100%;
       padding-bottom: 0;
     }
-
-    .heading-actions > * {
-      flex: 1;
-    }
   }
 
   /* ---------- 空态 ---------- */
 
+  /*
+   * 空库的首屏：把空态垂直放到阅读区中间，而不是一块虚线卡贴在顶部、
+   * 下面留半屏空纸。calc 留的余量比 header + footer 多，不会多出滚动条。
+   */
+  .empty-stage {
+    display: grid;
+    flex: 1 0 auto;
+    min-height: 300px;
+    grid-template-rows: minmax(0, 1fr);
+    place-items: center;
+  }
+
+  /* 首屏的空态就是这屏的内容：把内容块拉高一点，别让面板内部空成一片 */
+  .empty-stage > .empty-state {
+    min-height: 320px;
+    padding-block: 40px;
+  }
+
   .empty-state {
     display: flex;
-    min-height: 320px;
+    width: 100%;
+    min-height: 280px;
     padding: 48px 24px;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 14px;
-    border: 1px dashed var(--rule-strong);
-    border-radius: var(--r-lg);
-    background: color-mix(in srgb, var(--slip) 55%, transparent);
+    gap: 12px;
+    border: 1px dashed var(--control);
+    border-radius: var(--r-md);
     text-align: center;
   }
 
@@ -231,8 +269,8 @@
   .empty-state h2,
   .empty-state h3 {
     margin: 0;
-    font-size: var(--t-xl);
-    font-weight: 500;
+    font-size: var(--t-lg);
+    font-weight: 600;
     line-height: 1.3;
     letter-spacing: -0.01em;
     text-wrap: balance;
@@ -240,7 +278,7 @@
 
   .empty-state p {
     max-width: 46ch;
-    margin: -6px 0 6px;
+    margin: -4px 0 4px;
     color: var(--muted);
     font-size: var(--t-sm);
     text-wrap: pretty;
@@ -248,17 +286,12 @@
 
   .empty-state-icon {
     display: inline-flex;
-    width: 48px;
-    height: 48px;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--rule);
-    border-radius: 50%;
-    color: var(--accent);
+    margin-bottom: 2px;
+    color: var(--muted);
   }
 
   .empty-state-compact {
-    min-height: 220px;
+    min-height: 200px;
     padding: 32px 20px;
   }
 
@@ -275,8 +308,43 @@
   .progress-rule > span {
     display: block;
     height: 100%;
-    background: var(--accent);
-    transition: width var(--dur) var(--ease);
+    background: var(--ink);
+    transition: width var(--dur-slow) var(--ease);
+  }
+
+  /* ---------- 横向统计带（完成摘要 / 复习结算） ---------- */
+
+  .data-strip {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    gap: 1px;
+    border-radius: var(--r-sm);
+    background: var(--rule);
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    overflow: hidden;
+  }
+
+  .data-cell {
+    display: flex;
+    padding: 12px 10px;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    background: var(--slip);
+  }
+
+  .data-value {
+    color: var(--ink);
+    font-size: var(--t-xl);
+    font-weight: 500;
+    line-height: 1.2;
+  }
+
+  .data-label {
+    color: var(--muted);
+    font-size: var(--t-xs);
   }
 
   /* ---------- 字段 ---------- */
@@ -289,20 +357,21 @@
   }
 
   .field-label {
-    color: var(--muted);
-    font-size: var(--t-xs);
+    color: var(--ink-soft);
+    font-size: var(--t-sm);
+    font-weight: 500;
   }
 
   .field-input {
     width: 100%;
-    height: 44px;
+    height: 38px;
     padding: 0 12px;
-    border: 1px solid var(--rule-strong);
-    border-radius: var(--r-md);
+    border: 1px solid var(--control);
+    border-radius: var(--r-sm);
     background: var(--slip);
     color: var(--ink);
-    font-size: var(--t-md);
-    transition: border-color var(--dur) var(--ease);
+    font-size: var(--t-sm);
+    transition: border-color var(--dur-fast) var(--ease);
   }
 
   .field-input:hover {
@@ -312,15 +381,55 @@
   .field-input::placeholder {
     color: var(--muted);
     opacity: 1;
-    font-size: var(--t-sm);
   }
 
   .field-input[aria-invalid="true"] {
-    border-color: var(--clay);
+    border-color: var(--negative);
   }
 
   .field-error {
-    color: var(--clay);
+    margin: 0;
+    color: var(--negative);
     font-size: var(--t-xs);
+  }
+
+  /* ---------- 分段控件（主题 / 判定方式 / 每组数量） ---------- */
+
+  .segment-group {
+    display: inline-flex;
+    padding: 2px;
+    gap: 2px;
+    border: 1px solid var(--control);
+    border-radius: var(--r-sm);
+  }
+
+  .segment {
+    display: inline-flex;
+    height: 26px;
+    padding: 0 9px;
+    align-items: center;
+    gap: 5px;
+    border-radius: 4px;
+    color: var(--muted);
+    font-size: var(--t-xs);
+    white-space: nowrap;
+    transition: background var(--dur-fast) var(--ease),
+      color var(--dur-fast) var(--ease);
+  }
+
+  .segment:hover {
+    color: var(--ink);
+  }
+
+  .segment[aria-pressed="true"] {
+    background: var(--active);
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  @media (pointer: coarse) {
+    .segment {
+      height: 32px;
+    }
   }
 }

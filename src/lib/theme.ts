@@ -11,8 +11,9 @@ export type ResolvedTheme = "light" | "dark";
 export const THEME_STORAGE_KEY = "word-anchor:theme";
 
 export const THEME_COLORS: Record<ResolvedTheme, string> = {
-  light: "#f6f1e7",
-  dark: "#171a17",
+  /* 必须与 styles/tokens.css 里的 --paper 完全一致，否则首帧会闪一下别的底色 */
+  light: "#f6f6f4",
+  dark: "#111312",
 };
 
 const DARK_QUERY = "(prefers-color-scheme: dark)";

@@ -10,16 +10,21 @@
     scroll-behavior: smooth;
     /* sticky 页头不得遮挡键盘焦点 */
     scroll-padding-top: calc(var(--header-h) + 20px);
-    -webkit-tap-highlight-color: color-mix(in srgb, var(--accent) 16%, transparent);
+    -webkit-tap-highlight-color: var(--selection);
   }
 
   body {
+    display: flex;
+    min-height: 100dvh;
+    flex-direction: column;
     margin: 0;
     background: var(--paper);
     color: var(--ink);
     font-family: var(--font-sans);
-    font-size: var(--t-md);
-    line-height: 1.65;
+    font-size: var(--t-sm);
+    line-height: 1.6;
+    /* 全站数字等宽：计时、编号、日期、统计都不会跳动 */
+    font-variant-numeric: tabular-nums;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -35,6 +40,8 @@
   }
 
   button {
+    /* 表单控件默认不继承字体，不写这一行界面按钮会落到 Arial */
+    font: inherit;
     padding: 0;
     border: 0;
     background: none;
@@ -64,15 +71,16 @@
   }
 
   ::selection {
-    background: var(--accent-wash);
+    background: var(--selection);
     color: var(--ink);
   }
 }
 
 @layer utilities {
-  /* 焦点环放在最后一层，任何组件都不会把它吃掉 */
+  /* 焦点环放在最后一层，任何组件都不会把它吃掉。
+     用墨色而不是强调色：界面里没有第二个颜色可以借。 */
   :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--ink);
     outline-offset: 2px;
   }
 
@@ -80,6 +88,25 @@
      滚动/阅读本身即是反馈，不要给整页高度画一圈焦点环 */
   .site-main:focus-visible {
     outline: none;
+  }
+
+  /*
+   * 每屏一次的入场：只给三个分组（标题 → 主体 → 控件）加 .rise，
+   * 用 --i 排先后。纯 CSS 动画，首帧即终态——脚本失败或 reduce 时
+   * 内容直接可见，不会被藏起来。
+   */
+  @media (prefers-reduced-motion: no-preference) {
+    .rise {
+      animation: rise var(--dur-slow) var(--ease) both;
+      animation-delay: calc(var(--i, 0) * 80ms);
+    }
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -91,6 +118,7 @@
     *::before,
     *::after {
       animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }

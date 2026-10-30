@@ -3,101 +3,102 @@
 /*
  * 词锚 · 设计令牌
  *
- * 纸张 + 墨 + 单一陶土红。颜色只出现在墨线上：连线、选中、状态。
- * 所有文字色都经过对比度核算（正文 ≥ 4.5:1），没有低于 AA 的令牌。
+ * 一份墨线账簿：纸、墨、以及唯一有颜色的东西——把单词连到释义的那根线。
+ * 页头、导航、页脚、LIST 编号、计时、进度一律灰阶；颜色只出现在
+ * 练习连线、答对与答错上，所以它一出现就有意义。
+ *
+ * 所有文字色都核算过对比度（正文 ≥ 4.5:1），没有低于 AA 的令牌。
+ * 数字一律走无衬线 + tabular-nums；衬线只留给英文词本身。
  */
 
 :root {
   color-scheme: light;
 
   /* 纸 */
-  --paper: #f6f1e7;
-  --paper-sunk: #efe8db;
-  --slip: #fffdf8;
+  --paper: #f6f6f4;
+  --paper-sunk: #ececea; /* 下沉面：输入框底、设置面板 */
+  --active: #e9eae6; /* 交互态：悬停、按下、选中、当前页 */
+  --slip: #ffffff;
 
   /* 墨 */
-  --ink: #1d2721;
-  --ink-soft: #35423a;
-  --muted: #5b645c; /* 4.7:1 on --paper */
-  --on-ink: #f6f1e7;
+  --ink: #16181a;
+  --ink-soft: #2f3438;
+  --muted: #575c60; /* 6.2:1 on --paper, 5.7:1 on --paper-sunk */
+  --on-ink: #f6f6f4;
+  --selection: #dcdfda;
 
-  /* 结构线 */
-  --rule: rgba(29, 39, 33, 0.14);
-  --rule-strong: rgba(29, 39, 33, 0.28);
+  /* 结构线：面板 < 行分隔 < 控件，三步 */
+  --border: #e2e3e0; /* ≈1.16:1 on --paper */
+  --rule: #e9eae7;
+  --control: #d2d4d0; /* ≈1.38:1，控件与输入框 */
 
-  /* 墨线色 */
-  --accent: #a94a2a; /* 5.0:1 on --paper */
-  --accent-wash: #f2e2d6;
-  --pine: #3f6350; /* 5.9:1 */
-  --pine-wash: #e6ece5;
-  --oche: #7d5a1e; /* 5.2:1 on --oche-wash */
-  --oche-wash: #f3e9d7;
-  --clay: #9c3f31; /* 5.8:1 */
-  --clay-wash: #f4e4e0;
+  /* 唯一的有色：连线的状态 */
+  --line-idle: #b8bab6; /* 已连、未判定 */
+  --positive: #1f6b47; /* 连对 · 6.0:1 */
+  --positive-wash: #e7efe9;
+  --negative: #a3372c; /* 连错 · 6.2:1 */
+  --negative-wash: #f4e6e3;
 
-  /* 字体：中文走系统黑体，英文词与数字走 Crimson Pro */
+  /* 字体：中文走系统黑体，英文词走 Crimson Pro，数字走 sans + tabular */
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text",
     "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
     "Noto Sans SC", sans-serif;
   --font-term: var(--font-crimson), "PingFang SC", "Microsoft YaHei",
     "Noto Sans SC", sans-serif;
 
-  /* 字阶：12px 是下限，没有 8/9/10px */
-  --t-xs: 0.75rem; /* 12 */
-  --t-sm: 0.8125rem; /* 13 */
-  --t-md: 0.9375rem; /* 15 */
-  --t-lg: 1.0625rem; /* 17 */
-  --t-xl: 1.3125rem; /* 21 */
-  --t-2xl: 1.75rem; /* 28 */
-  --t-3xl: clamp(2rem, 3.6vw, 2.5rem); /* 32–40 */
-  --t-4xl: clamp(2.5rem, 5.6vw, 4rem); /* 40–64 */
+  /* 字阶：六步，13px 是下限（再小就不是给读的字了） */
+  --t-xs: 0.8125rem; /* 13 表头 / 计时 / chip / 日期 */
+  --t-sm: 0.9375rem; /* 15 正文 / 单元格 / 导航 / 按钮 */
+  --t-md: 1.0625rem; /* 17 卡片标题 / 表格里的英文词 */
+  --t-lg: 1.25rem; /* 20 分区标题 / 练习卡的词 / 清单首词 */
+  --t-xl: 1.5rem; /* 24 复习结算 / LIST 编号 / 摘要数字 */
+  /* 32：每页唯一的 h1；手机上收到 28（app 屏不是落地页） */
+  --t-2xl: clamp(1.75rem, 1.35rem + 1.1vw, 2rem);
 
-  /* 圆角：只有三级 */
-  --r-sm: 4px;
-  --r-md: 8px;
-  --r-lg: 12px;
+  /* 圆角：两级 */
+  --r-sm: 6px; /* 控件、卡片内元素 */
+  --r-md: 8px; /* 面板、对话框 */
 
-  /* 影：只为一层抬升面 */
-  --shadow-slip: 0 1px 2px rgba(29, 39, 33, 0.06);
-  --shadow-float: 0 18px 44px rgba(29, 39, 33, 0.18);
-  /* 遮罩：浅色用墨色半透，暗色用真黑，避免暗色主题下反而变亮 */
+  /* 影：只有真正浮起来的东西有影 */
+  --shadow-float: 0 18px 44px rgba(22, 24, 26, 0.18);
   --veil: color-mix(in srgb, var(--ink) 45%, transparent);
 
   /* 动效 */
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   --dur-fast: 120ms;
-  --dur: 180ms;
+  --dur: 200ms;
+  --dur-slow: 320ms;
 
   /* 尺寸 */
-  --header-h: 64px;
+  /* 悬浮胶囊带子的总高：上下各 10px 留白 + 48px 胶囊 */
+  --header-h: 68px;
   --readable: 68ch;
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --paper: #171a17;
-  --paper-sunk: #101210;
-  --slip: #1f2320;
+  --paper: #111312;
+  --paper-sunk: #0b0c0c;
+  --active: #232624;
+  --slip: #191c1a;
 
-  --ink: #ece6da;
-  --ink-soft: #cfcabe;
-  --muted: #a3aba1; /* 7.4:1 on --paper */
-  --on-ink: #171a17;
+  --ink: #eceae5;
+  --ink-soft: #d2d0ca;
+  --muted: #a7aba6; /* 8.0:1 on --paper */
+  --on-ink: #111312;
+  --selection: #2b2f2d;
 
-  --rule: rgba(236, 230, 218, 0.14);
-  --rule-strong: rgba(236, 230, 218, 0.28);
+  --border: #262a28; /* ≈1.30:1 on --paper */
+  --rule: #1d201f;
+  --control: #3a3f3c;
 
-  --accent: #e08a5f; /* 6.7:1 */
-  --accent-wash: #3a2a22;
-  --pine: #8fb59b;
-  --pine-wash: #22302a;
-  --oche: #d3a866;
-  --oche-wash: #33301f;
-  --clay: #e2897a;
-  --clay-wash: #3a2622;
+  --line-idle: #4a4f4c;
+  --positive: #62b087; /* 7.2:1 */
+  --positive-wash: #16241c;
+  --negative: #d9756a; /* 6.0:1 */
+  --negative-wash: #2a1a18;
 
-  --shadow-slip: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-float: 0 18px 44px rgba(0, 0, 0, 0.55);
   --veil: rgba(0, 0, 0, 0.62);
 }
