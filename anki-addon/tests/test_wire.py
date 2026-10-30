@@ -35,12 +35,36 @@ class FakeCard:
 
 
 class WireTest(unittest.TestCase):
-    def test_clipboard_envelope_starts_with_prefix(self):
-        envelope = wire.clipboard_envelope([{"term": "lucid", "meaning": "清晰"}])
-        first, second = envelope.split("\n")
+    """线格式 v1：就是本机 HTTP API 的 JSON body，三边共用一个 fixture。"""
 
-        self.assertEqual(first, wire.WIRE_PREFIX)
-        self.assertTrue(second)
+    #: 与 src/lib/intake.test.ts / src-tauri/src/api.rs 里一模一样的字符串
+    SHARED_BODY = (
+        '{"v":1,"source":"anki","words":['
+        '{"term":"lucid","meaning":"清晰易懂的"},'
+        '{"term":"serendipity","meaning":"意外发现珍奇事物的本领"}]}'
+    )
+
+    def test_body_matches_the_frontend_fixture(self):
+        body = wire.encode_payload(
+            [
+                {"term": "lucid", "meaning": "清晰易懂的"},
+                {"term": "serendipity", "meaning": "意外发现珍奇事物的本领"},
+            ]
+        )
+
+        self.assertEqual(body, self.SHARED_BODY)
+        self.assertEqual(
+            wire.decode_payload(self.SHARED_BODY)["words"][0]["term"], "lucid"
+        )
+
+    def test_body_is_plain_utf8_json(self):
+        body = wire.encode_payload([{"term": "lucid", "meaning": "清晰易懂"}])
+
+        self.assertTrue(body.startswith("{"))
+        self.assertIn("清晰易懂", body)
+        self.assertNotIn("=", body[:1])
+        self.assertEqual(json.loads(body)["source"], "anki")
+        self.assertEqual(json.loads(body)["v"], 1)
 
     def test_roundtrip_keeps_chinese_and_emoji(self):
         entries = [
@@ -48,57 +72,61 @@ class WireTest(unittest.TestCase):
             {"term": "lucid", "meaning": "清晰易懂的\n第二行"},
         ]
 
-        payload = wire.encode_payload(entries)
-        decoded = wire.decode_payload(payload)
+        body = wire.encode_payload(entries)
+        decoded = wire.decode_payload(body)
 
-        self.assertEqual(decoded["v"], wire.WIRE_VERSION)
-        self.assertEqual(decoded["source"], "anki")
         self.assertEqual(decoded["words"], entries)
 
-    def test_payload_is_url_safe(self):
-        payload = wire.encode_payload([{"term": "亯亯", "meaning": "丿丿丿"}])
-
-        self.assertNotIn("+", payload)
-        self.assertNotIn("/", payload)
-        self.assertNotIn("=", payload)
-        self.assertEqual(wire.decode_payload(payload)["words"][0]["term"], "亯亯")
-
-    def test_deep_link_normalizes_site_url(self):
-        words = [{"term": "lucid", "meaning": "清晰"}]
-
-        self.assertEqual(
-            wire.deep_link("someone.github.io/word_anchor", words),
-            "https://someone.github.io/word_anchor/#inbox="
-            + wire.encode_payload(words),
-        )
-        self.assertEqual(
-            wire.deep_link("https://example.com/app/", words),
-            "https://example.com/app/#inbox=" + wire.encode_payload(words),
-        )
-        self.assertEqual(wire.normalize_site_url("   "), "")
-
     def test_payload_truncates_overlong_fields(self):
-        payload = wire.encode_payload(
-            [{"term": "a" * 90, "meaning": "义" * 320}]
-        )
-        word = wire.decode_payload(payload)["words"][0]
+        body = wire.encode_payload([{"term": "a" * 90, "meaning": "义" * 320}])
+        word = wire.decode_payload(body)["words"][0]
 
         self.assertEqual(len(word["term"]), wire.MAX_TERM_LENGTH)
         self.assertEqual(len(word["meaning"]), wire.MAX_MEANING_LENGTH)
 
+    def test_payload_is_capped_at_200_entries(self):
+        body = wire.encode_payload(
+            [{"term": "word-{}".format(index), "meaning": "释义"} for index in range(250)]
+        )
+
+        self.assertEqual(len(wire.decode_payload(body)["words"]), wire.MAX_ENTRIES)
+
     def test_captured_at_is_optional_and_kept_when_present(self):
         stamp = "2024-05-01T09:00:00.000+00:00"
-        payload = wire.encode_payload(
+        body = wire.encode_payload(
             [
                 {"term": "lucid", "meaning": "清晰", "capturedAt": stamp},
                 {"term": "vivid", "meaning": "生动的"},
             ]
         )
-        words = wire.decode_payload(payload)["words"]
+        words = wire.decode_payload(body)["words"]
 
         # 词锚靠它区分「重发」与「又忘了一次」，缺省时干脆不写这个键
         self.assertEqual(words[0]["capturedAt"], stamp)
         self.assertNotIn("capturedAt", words[1])
+
+    def test_normalize_api_url(self):
+        cases = [
+            ("", ""),
+            ("   ", ""),
+            ("127.0.0.1:8771", "http://127.0.0.1:8771"),
+            ("http://127.0.0.1:8770/", "http://127.0.0.1:8770"),
+            ("https://example.com/app/", "https://example.com/app"),
+            ("http://127.0.0.1:8770/api/v1/intake", "http://127.0.0.1:8770"),
+            ("127.0.0.1:8770/api/v1", "http://127.0.0.1:8770"),
+            ("ftp://example.com", "http://example.com"),
+        ]
+
+        for raw, expected in cases:
+            self.assertEqual(wire.normalize_api_url(raw), expected, raw)
+
+    def test_limits_stay_aligned_with_the_frontend(self):
+        self.assertEqual(wire.MAX_ENTRIES, 200)
+        self.assertEqual(wire.MAX_TERM_LENGTH, 80)
+        self.assertEqual(wire.MAX_MEANING_LENGTH, 300)
+        self.assertEqual(wire.MAX_BODY_BYTES, 512 * 1024)
+        self.assertEqual(wire.WIRE_VERSION, 1)
+        self.assertEqual((wire.PORT_MIN, wire.PORT_MAX), (8770, 8789))
 
 
 class ManifestTest(unittest.TestCase):

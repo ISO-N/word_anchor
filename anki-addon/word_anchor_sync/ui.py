@@ -1,19 +1,22 @@
-"""菜单、设置对话框、预览对话框，以及两条发送通道。
+"""菜单、设置对话框、预览对话框，以及后台推送的编排。
 
-界面部分全部在 Anki 主线程上跑：这些都是用户主动点的动作，不需要后台任务。
+界面部分全部在 Anki 主线程上跑；真正发 HTTP 的后台线程只碰 sender，
+回来时用 `mw.taskman.run_on_main` 切回主线程再动队列与 Qt。
 """
 
 from __future__ import annotations
 
+import threading
+
 from aqt import mw
 from aqt.qt import (
     QAction,
-    QApplication,
+    QCheckBox,
     QComboBox,
-    QDesktopServices,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QListWidget,
@@ -23,15 +26,98 @@ from aqt.qt import (
     QPlainTextEdit,
     QPushButton,
     Qt,
-    QUrl,
     QVBoxLayout,
+    QWidget,
 )
 from aqt.utils import showInfo, showWarning, tooltip
 
-from . import capture, config, decks, log, queue_store, wire
+from . import capture, config, decks, log, queue_store, sender, wire
 
 MENU_TITLE = "词锚 Word Anchor"
 MENU_OBJECT = "word_anchor_menu"
+
+_push_lock = threading.Lock()
+
+
+# ---------------------------------------------------------------- 后台推送
+
+
+def push_async(silent: bool = True) -> bool:
+    """后台推一次。已经在推时返回 False：这一批会跟着下一次一起走。
+
+    `conf` 在主线程读好再交给后台线程 —— addonManager 只在主线程碰。
+    """
+    conf = config.load()
+
+    if not _push_lock.acquire(blocking=False):
+        return False
+
+    def worker() -> None:
+        try:
+            result = sender.push_pending(conf)
+        except Exception:
+            log.log_error("后台推送失败")
+            _on_main(lambda: _finish_failure(silent))
+            return
+        finally:
+            _push_lock.release()
+
+        _on_main(lambda: _finish(result, silent))
+
+    threading.Thread(target=worker, name="word-anchor-push", daemon=True).start()
+    return True
+
+
+def _on_main(callback) -> None:
+    """把回调切回 Anki 主线程；Anki 正在退出时只写日志。"""
+    try:
+        mw.taskman.run_on_main(callback)
+    except Exception:
+        log.log_error("切换回主线程失败")
+
+
+def _finish(result: sender.PushResult, silent: bool) -> None:
+    """回到主线程：标记已发送，然后按需要提示。"""
+    if result.ok:
+        try:
+            queue_store.mark_sent(result.terms)
+        except Exception:
+            log.log_error("标记已发送失败")
+    else:
+        log.log_note("推送未完成：{}".format(result.status), result.error or "")
+
+    # 推送期间又按了「重来」/ 队列超过 200 条：成功之后再顺一次，失败就停
+    if result.ok and queue_store.pending():
+        push_async(silent=silent)
+
+    if silent:
+        return
+
+    if result.ok:
+        tooltip("已推送 {} 个单词".format(result.accepted), period=2000)
+    elif result.status == "empty":
+        showInfo("队列里没有待发送的单词。")
+    else:
+        showWarning(
+            "没能推送到词锚：{}\n\n队列里还有 {} 个待发送，下次按「重来」或手动推送时会重试。".format(
+                result.error or result.status, len(queue_store.pending())
+            )
+        )
+
+
+def _finish_failure(silent: bool) -> None:
+    if not silent:
+        showWarning("推送时出错，详情见插件的 error.log。")
+
+
+def push_now() -> None:
+    """菜单里的「立即推送」：用户主动触发，结果用提示框回报。"""
+    if not queue_store.pending():
+        showInfo("队列里没有待发送的单词。")
+        return
+
+    if not push_async(silent=False):
+        showInfo("上一批还在推送，稍等一下。")
 
 
 # ---------------------------------------------------------------- 菜单
@@ -50,9 +136,7 @@ def setup_menu() -> None:
         menu.setObjectName(MENU_OBJECT)
 
         send_action = QAction(menu)
-        send_action.triggered.connect(send_via_link)
-        copy_action = QAction(menu)
-        copy_action.triggered.connect(send_via_clipboard)
+        send_action.triggered.connect(push_now)
         preview_action = QAction(menu)
         preview_action.triggered.connect(open_preview)
         test_action = QAction("测试：预览当前卡片", menu)
@@ -61,7 +145,6 @@ def setup_menu() -> None:
         settings_action.triggered.connect(open_settings)
 
         menu.addAction(send_action)
-        menu.addAction(copy_action)
         menu.addAction(preview_action)
         menu.addSeparator()
         menu.addAction(test_action)
@@ -70,120 +153,15 @@ def setup_menu() -> None:
         def refresh() -> None:
             data = queue_store.load()
             waiting = len(queue_store.pending(data))
-            send_action.setText("打开词锚收录（{} 个待发送）".format(waiting))
-            copy_action.setText("复制到剪贴板（{} 个待发送）".format(waiting))
+            send_action.setText("立即推送（{} 个待发送）".format(waiting))
             preview_action.setText("预览队列（共 {} 个）".format(len(data["items"])))
             send_action.setEnabled(waiting > 0)
-            copy_action.setEnabled(waiting > 0)
 
         menu.aboutToShow.connect(refresh)
         refresh()
         mw.form.menuTools.addMenu(menu)
     except Exception:
         log.log_error("创建菜单失败")
-
-
-# ---------------------------------------------------------------- 发送
-
-
-def _entries(items, conf: dict) -> list:
-    """队列里的原始文本 → 真正要发送的 term / meaning（顺手洗掉字段自带的标签）。
-
-    `capturedAt` 原样带走：词锚靠它区分「重新发送全部」这种重发（时间没变，
-    只去重）与「又按了一次重来」（时间更新，把词挪到队尾重练）。
-    """
-    term_field = str(conf.get("term_field", ""))
-    meaning_field = str(conf.get("meaning_field", ""))
-    term_prefixes = conf.get("strip_term_prefixes") or capture.DEFAULT_TERM_PREFIXES
-    meaning_prefixes = (
-        conf.get("strip_meaning_prefixes") or capture.DEFAULT_MEANING_PREFIXES
-    )
-
-    entries = []
-    for item in items:
-        entry = capture.clean_entry(
-            item["term"],
-            item.get("meaning", ""),
-            term_field,
-            meaning_field,
-            term_prefixes,
-            meaning_prefixes,
-        )
-        if item.get("capturedAt"):
-            entry["capturedAt"] = str(item["capturedAt"])
-        entries.append(entry)
-
-    return entries
-
-
-def _write_clipboard(entries, raw_terms) -> None:
-    QApplication.clipboard().setText(wire.clipboard_envelope(entries))
-    # 用队列里的原始 term 标记已发送：清洗可能改写过 term（如「单词：lucid」）
-    queue_store.mark_sent(raw_terms)
-
-
-def send_via_clipboard() -> None:
-    items = queue_store.pending()
-    if not items:
-        showInfo("队列里没有待发送的单词。")
-        return
-
-    try:
-        _write_clipboard(_entries(items, config.load()), [item["term"] for item in items])
-    except Exception:
-        log.log_error("复制到剪贴板失败")
-        showWarning("复制到剪贴板失败，详情见插件的 error.log。")
-        return
-
-    tooltip("已复制 {} 个单词到剪贴板".format(len(items)), period=2000)
-
-
-def send_via_link() -> None:
-    conf = config.load()
-    if not conf.get("site_url"):
-        showWarning(
-            "还没有填词锚站点地址。\n\n先在这里填一次：Tools → 词锚 Word Anchor → 设置。"
-        )
-        open_settings()
-        return
-
-    items = queue_store.pending()
-    if not items:
-        showInfo("队列里没有待发送的单词。")
-        return
-
-    raw_terms = [item["term"] for item in items]
-    entries = _entries(items, conf)
-    try:
-        link = wire.deep_link(str(conf["site_url"]), entries)
-    except Exception:
-        log.log_error("构造收录链接失败")
-        showWarning("构造收录链接失败，详情见插件的 error.log。")
-        return
-
-    limit = int(conf.get("max_deep_link_chars") or 0) or wire.MAX_PAYLOAD_CHARS
-    if len(link) > limit:
-        try:
-            _write_clipboard(entries, raw_terms)
-        except Exception:
-            log.log_error("链接过长，降级到剪贴板时失败")
-            showWarning("链接太长，复制到剪贴板也失败了。")
-            return
-
-        showInfo(
-            "这批单词太多，链接放不下，已经复制到剪贴板。\n\n"
-            "打开词锚的「单词库」页，粘到「从 Anki 快速收录」里即可。"
-        )
-        return
-
-    if not QDesktopServices.openUrl(QUrl(link)):
-        showWarning(
-            "没能打开浏览器。\n\n可以改用「复制到剪贴板」这一条通道。"
-        )
-        return
-
-    queue_store.mark_sent(raw_terms)
-    tooltip("已把 {} 个单词发到词锚".format(len(entries)), period=2000)
 
 
 # ---------------------------------------------------------------- 预览
@@ -197,6 +175,11 @@ class PreviewDialog(QDialog):
         self.resize(680, 480)
 
         layout = QVBoxLayout(self)
+
+        self.address = QLabel(self)
+        self.address.setWordWrap(True)
+        layout.addWidget(self.address)
+
         self.text = QPlainTextEdit(self)
         self.text.setReadOnly(True)
         layout.addWidget(self.text, 1)
@@ -217,14 +200,20 @@ class PreviewDialog(QDialog):
         self.refresh()
 
     def refresh(self) -> None:
+        self.address.setText(
+            "推送地址：{}（留空「API 地址」时会自动发现端口）".format(
+                sender.resolve_base_url(self.conf)
+            )
+        )
+
         items = queue_store.load()["items"]
         if not items:
             self.text.setPlainText(
-                "队列是空的。\n\n在 Anki 复习时按「重来」，单词就会出现在这里。"
+                "队列是空的。\n\n在 Anki 复习时按「重来」，单词就会自动出现在词锚里。"
             )
             return
 
-        entries = _entries(items, self.conf)
+        entries = sender.entries_for(items, self.conf)
 
         lines = []
         for index, (item, entry) in enumerate(zip(items, entries), 1):
@@ -252,8 +241,8 @@ class PreviewDialog(QDialog):
         for item in data["items"]:
             item["sentAt"] = None
         queue_store.save(data)
-        self.accept()
-        send_via_link()
+        self.refresh()
+        push_now()
 
 
 def open_preview() -> None:
@@ -321,16 +310,28 @@ class SettingsDialog(QDialog):
         conf = config.load()
         self.setWindowTitle("词锚 Word Anchor · 设置")
         self.setMinimumWidth(560)
-        self.resize(600, 640)
+        self.resize(600, 660)
 
         layout = QVBoxLayout(self)
         form = QFormLayout()
 
-        self.url_edit = QLineEdit(str(conf.get("site_url", "")), self)
-        self.url_edit.setPlaceholderText(
-            "https://<用户名>.github.io/word_anchor/"
+        self.api_edit = QLineEdit(str(conf.get("api_base", "")), self)
+        self.api_edit.setPlaceholderText(
+            "留空 = 自动发现端口（默认 http://127.0.0.1:8770）"
         )
-        form.addRow("词锚站点地址", self.url_edit)
+        self.test_button = QPushButton("测试连接", self)
+        self.test_button.clicked.connect(self._test_connection)
+
+        api_row = QWidget(self)
+        api_layout = QHBoxLayout(api_row)
+        api_layout.setContentsMargins(0, 0, 0, 0)
+        api_layout.addWidget(self.api_edit, 1)
+        api_layout.addWidget(self.test_button)
+        form.addRow("词锚 API 地址", api_row)
+
+        self.auto_push = QCheckBox("按「重来」后自动推送（失败静默留队重试）", self)
+        self.auto_push.setChecked(bool(conf.get("auto_push", True)))
+        form.addRow("", self.auto_push)
 
         names = _field_names()
         self.term_combo = _build_combo(names, str(conf.get("term_field", "")))
@@ -341,9 +342,11 @@ class SettingsDialog(QDialog):
         layout.addLayout(form)
 
         hint = QLabel(
+            "词锚桌面端必须正在运行（关掉窗口没关系，它会留在托盘里）。\n"
+            "「API 地址」留空时，插件会读词锚写下的端口文件自动找到端口；"
+            "端口被占用时词锚会自动顺延，所以一般不需要手填。\n"
             "字段留空表示自动取笔记类型的第 1、2 个字段。"
-            "不确定选哪个时，先用菜单里的「测试：预览当前卡片」看一眼。\n"
-            "释义开头带「释义：」这类标签时会自动去掉（可在配置里改）。",
+            "不确定选哪个时，先用菜单里的「测试：预览当前卡片」看一眼。",
             self,
         )
         hint.setWordWrap(True)
@@ -382,12 +385,24 @@ class SettingsDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
-    def _save(self) -> None:
-        url = wire.normalize_site_url(self.url_edit.text())
-        if not url:
-            showWarning("请填写词锚的站点地址。")
-            return
+    def _test_connection(self) -> None:
+        conf = config.load()
+        conf["api_base"] = self.api_edit.text()
+        base = sender.resolve_base_url(conf)
+        ok, detail = sender.check_health(base)
 
+        if ok:
+            showInfo(
+                "连接正常：词锚在 {} 应答。".format(detail),
+                title="词锚 · 测试连接",
+            )
+        else:
+            showWarning(
+                "连不上词锚（{}）：{}\n\n先确认词锚桌面端正在运行。".format(base, detail),
+                title="词锚 · 测试连接",
+            )
+
+    def _save(self) -> None:
         term = self.term_combo.currentText()
         meaning = self.meaning_combo.currentText()
         if term and meaning and term == meaning:
@@ -397,7 +412,8 @@ class SettingsDialog(QDialog):
         conf = config.load()
         conf.update(
             {
-                "site_url": url,
+                "api_base": wire.normalize_api_url(self.api_edit.text()),
+                "auto_push": self.auto_push.isChecked(),
                 "term_field": term,
                 "meaning_field": meaning,
                 "deck_whitelist": self._checked_decks(),
