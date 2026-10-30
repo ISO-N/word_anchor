@@ -17,7 +17,8 @@ export function StorageNotice() {
         <AlertTriangle className={styles.icon} size={18} strokeWidth={1.8} />
         <p className={styles.text}>
           <strong>本地保存失败。</strong>
-          {error}。为避免丢失，请到 <Link href="/words">单词库</Link> 导出备份。
+          {error}。词库现在只在内存里，关掉窗口就会丢；请到{" "}
+          <Link href="/words">单词库</Link> 导出备份。
         </p>
         <button
           type="button"
