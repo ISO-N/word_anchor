@@ -88,8 +88,8 @@ export type IntakeSummary = {
 };
 
 /**
- * 浏览器本地的完整数据包。它是 IndexedDB 里唯一的一条记录，
- * 也是导出文件的内容形态。
+ * 本机的完整数据包：内存快照、SQLite 里的 words + settings，
+ * 以及导出备份文件的内容形态。
  */
 export type AppDatabase = {
   version: 3;

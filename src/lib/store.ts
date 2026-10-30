@@ -11,6 +11,13 @@ import {
   updateWord,
 } from "@/lib/data";
 import { normalizeDatabase } from "@/lib/backup";
+import { isTauri } from "@/lib/platform";
+import {
+  loadSnapshotFrom,
+  openDatabase,
+  saveSnapshotTo,
+  type DatabaseLike,
+} from "@/lib/sqlite";
 import type {
   AppDatabase,
   FeedbackMode,
@@ -18,25 +25,24 @@ import type {
   ParsedIntake,
 } from "@/lib/types";
 
-const DATABASE_NAME = "word-anchor";
-const STORE_NAME = "state";
-const STATE_KEY = "main";
-const CHANNEL_NAME = "word-anchor:state";
-
 /**
- * 浏览器端的“数据库”。
+ * 词锚的「数据库」。
  *
  * 内存里只有一份不可变快照，所有读取都走 `getSnapshot()`，
- * 所有写入都是「算出新快照 → 立刻通知 React → 排队落盘到 IndexedDB」。
- * 这样界面永远是同步响应的，持久化失败也不会阻塞交互。
+ * 所有写入都是「算出新快照 → 立刻通知 React → 排队落盘到 SQLite」。
+ * 界面永远是同步响应的，持久化失败也不会阻塞交互。
+ *
+ * 落盘策略见 `@/lib/sqlite`：整份快照 upsert 进 `words`，再删掉快照之外的行。
+ * 没有 BroadcastChannel 了——桌面端只有这一个窗口在写库。
  */
 
 let snapshot: AppDatabase | null = null;
 let persistError: string | null = null;
 let loadPromise: Promise<void> | null = null;
-let databasePromise: Promise<IDBDatabase> | null = null;
+let databasePromise: Promise<DatabaseLike> | null = null;
 let writeChain: Promise<void> = Promise.resolve();
-let channel: BroadcastChannel | null = null;
+/** 没有 Tauri 运行时（浏览器预览、jsdom 单测）时只跑内存，不尝试落盘 */
+let desktop = false;
 
 const listeners = new Set<() => void>();
 
@@ -73,134 +79,41 @@ function reportPersistError(error: unknown): void {
   emit();
 }
 
-function openDatabase(): Promise<IDBDatabase> {
-  if (databasePromise) return databasePromise;
-
-  const promise = new Promise<IDBDatabase>((resolve, reject) => {
-    if (typeof indexedDB === "undefined") {
-      reject(new Error("当前浏览器不支持本地数据库（IndexedDB）"));
-      return;
-    }
-
-    const request = indexedDB.open(DATABASE_NAME, 1);
-
-    request.onupgradeneeded = () => {
-      const database = request.result;
-      if (!database.objectStoreNames.contains(STORE_NAME)) {
-        database.createObjectStore(STORE_NAME);
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () =>
-      reject(request.error ?? new Error("无法打开本地数据库"));
-    request.onblocked = () =>
-      reject(new Error("本地数据库被其他标签页占用，请关闭后重试"));
-  }).catch((error: unknown) => {
-    databasePromise = null;
-    throw error;
-  });
-
-  databasePromise = promise;
-  return promise;
+function database(): Promise<DatabaseLike> {
+  if (!databasePromise) {
+    databasePromise = openDatabase().catch((error: unknown) => {
+      databasePromise = null;
+      throw error;
+    });
+  }
+  return databasePromise;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/**
- * 读回本地数据；`upgraded` 表示磁盘上还是旧版本，迁移后的快照应该落盘一次，
- * 否则每次打开页面都要从 v1 重新迁移（重排过的时间戳会被旧记录拉回去）。
- */
-async function readState(): Promise<{
-  state: AppDatabase | null;
-  upgraded: boolean;
-}> {
-  const database = await openDatabase();
-
-  return new Promise((resolve, reject) => {
-    let request: IDBRequest;
-    try {
-      request = database
-        .transaction(STORE_NAME, "readonly")
-        .objectStore(STORE_NAME)
-        .get(STATE_KEY);
-    } catch (error) {
-      reject(error);
-      return;
-    }
-    request.onsuccess = () => {
-      const state = normalizeDatabase(request.result);
-      const storedVersion = isRecord(request.result)
-        ? Number(request.result.version)
-        : Number.NaN;
-
-      resolve({
-        state,
-        upgraded:
-          state !== null &&
-          (storedVersion !== state.version ||
-            (isRecord(request.result) && isRecord(request.result.completions))),
-      });
-    };
-    request.onerror = () =>
-      reject(request.error ?? new Error("读取本地数据失败"));
-  });
+async function readState(): Promise<AppDatabase | null> {
+  return loadSnapshotFrom(await database());
 }
 
 async function writeState(state: AppDatabase): Promise<void> {
-  const database = await openDatabase();
-
-  await new Promise<void>((resolve, reject) => {
-    let transaction: IDBTransaction;
-    try {
-      transaction = database.transaction(STORE_NAME, "readwrite");
-    } catch (error) {
-      reject(error);
-      return;
-    }
-
-    transaction.objectStore(STORE_NAME).put(state, STATE_KEY);
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () =>
-      reject(transaction.error ?? new Error("写入本地数据失败"));
-    transaction.onabort = () =>
-      reject(transaction.error ?? new Error("写入本地数据被中断"));
-  });
+  await saveSnapshotTo(await database(), state);
 }
 
 function queueWrite(state: AppDatabase): void {
-  writeChain = writeChain.then(
-    () => writeState(state),
-    () => writeState(state),
-  ).catch((error: unknown) => {
-    reportPersistError(error);
-  });
-}
+  if (!desktop) return;
 
-function connectChannel(): void {
-  if (channel || typeof BroadcastChannel === "undefined") return;
-
-  channel = new BroadcastChannel(CHANNEL_NAME);
-  channel.onmessage = (event: MessageEvent) => {
-    const incoming = normalizeDatabase(
-      (event.data as { state?: unknown } | null)?.state,
-    );
-    if (!incoming) return;
-    snapshot = incoming;
-    emit();
-  };
-}
-
-function broadcast(state: AppDatabase): void {
-  channel?.postMessage({ state });
+  writeChain = writeChain
+    .then(
+      () => writeState(state),
+      () => writeState(state),
+    )
+    .catch((error: unknown) => {
+      reportPersistError(error);
+    });
 }
 
 function commit(next: AppDatabase): void {
   snapshot = next;
   emit();
   queueWrite(next);
-  broadcast(next);
 }
 
 function requireDatabase(): AppDatabase {
@@ -210,28 +123,28 @@ function requireDatabase(): AppDatabase {
   return snapshot;
 }
 
-/** 幂等：任何页面都可以调用，只有第一次真正读 IndexedDB。 */
+/** 幂等：任何页面都可以调用，只有第一次真正打开 SQLite。 */
 export function ensureLoaded(): Promise<void> {
   if (snapshot) return Promise.resolve();
   if (loadPromise) return loadPromise;
 
   loadPromise = (async () => {
     try {
-      const stored = await readState();
-      connectChannel();
+      desktop = isTauri();
 
-      if (stored.state) {
-        snapshot = stored.state;
-        if (stored.upgraded) queueWrite(snapshot);
-      } else {
+      if (!desktop) {
+        /* 浏览器里只保留内存快照：桌面端才是唯一的持久化入口 */
         snapshot = createEmptyDatabase();
-        queueWrite(snapshot);
+        return;
       }
+
+      /* 读不出来（或全新安装）时以空库继续，但不要立刻把空库写回去：
+         磁盘上原来的内容可能只是暂时读不了，等用户第一次真正改动再覆盖 */
+      snapshot = (await readState()) ?? createEmptyDatabase();
     } catch (error) {
-      // 读取失败时不要用空库覆盖磁盘数据，只让界面以空库继续运行。
+      /* 读失败时不要用空库覆盖磁盘数据，只让界面以空库继续运行 */
       reportPersistError(error);
       snapshot = createEmptyDatabase();
-      connectChannel();
     } finally {
       emit();
     }
@@ -262,14 +175,12 @@ export function removeWord(id: number): void {
   commit(deleteWord(requireDatabase(), id));
 }
 
-/** 批量删除走同一次 commit：一次写盘、一次广播。 */
+/** 批量删除走同一次 commit：一次写盘。 */
 export function removeWords(ids: readonly number[]): void {
   commit(deleteWords(requireDatabase(), ids));
 }
 
-/**
- * 批量收录：新词或重排词才写盘、广播，免得无意义地扰动其他标签页。
- */
+/** 批量收录：新词或重排词才写盘。 */
 export function intakeWords(intake: ParsedIntake): IntakeSummary {
   const result = applyIntake(requireDatabase(), intake);
 
@@ -293,8 +204,8 @@ export function markListComplete(index: number): void {
 }
 
 /**
- * 趣味复习答一题就落盘一次：整局中途关页也不会丢统计。
- * 单词已被别的标签页删除时纯函数返回同一个快照，这里跳过无意义的写盘与广播。
+ * 趣味复习答一题就落盘一次：整局中途关窗也不会丢统计。
+ * 单词已被删除时纯函数返回同一个快照，这里跳过无意义的写盘。
  */
 export function recordReviewResult(wordId: number, correct: boolean): void {
   const current = requireDatabase();

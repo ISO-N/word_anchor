@@ -1,7 +1,7 @@
 /**
  * 主题偏好：auto / light / dark。
  *
- * 偏好必须能在首帧之前同步读出，因此用 localStorage 而不是 IndexedDB；
+ * 偏好必须能在首帧之前同步读出，因此用 localStorage 而不是数据库；
  * localStorage 被禁用时静默退回 auto，不影响应用本体。
  */
 

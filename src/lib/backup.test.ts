@@ -225,3 +225,31 @@ describe("趣味复习统计", () => {
     expect(db.words[1].review?.correct).toBe(3);
   });
 });
+
+describe("导入时的单词唯一性", () => {
+  it("只差大小写的重复单词会被拒绝，避免之后每次落盘都失败", () => {
+    const backup = JSON.stringify({
+      app: "word-anchor",
+      version: 3,
+      words: [
+        {
+          id: 1,
+          term: "lucid",
+          meaning: "清晰易懂的",
+          createdAt: "2024-01-01T00:00:00.000Z",
+          updatedAt: "2024-01-01T00:00:00.000Z",
+        },
+        {
+          id: 2,
+          term: "Lucid",
+          meaning: "另一个释义",
+          createdAt: "2024-01-02T00:00:00.000Z",
+          updatedAt: "2024-01-02T00:00:00.000Z",
+        },
+      ],
+      settings: { listSize: 5, feedbackMode: "instant" },
+    });
+
+    expect(() => parseBackup(backup)).toThrow("出现了不止一次");
+  });
+});

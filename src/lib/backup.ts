@@ -135,7 +135,7 @@ function migrateToWordCompletions(
 }
 
 /**
- * 宽松解析：用于从 IndexedDB 读回数据（容忍旧版本/损坏字段），
+ * 宽松解析：用于从磁盘/备份读回数据（容忍旧版本/损坏字段），
  * 无法识别时返回 null，绝不抛错。
  */
 export function normalizeDatabase(value: unknown): AppDatabase | null {
@@ -171,6 +171,23 @@ export function normalizeDatabase(value: unknown): AppDatabase | null {
 }
 
 /**
+ * 单词去重是词库的硬不变量：`data.ts` 的每个写路径都保证它，
+ * SQLite 侧还有 `words_term_nocase` 唯一索引兜底。导入必须同样守住，
+ * 否则坏备份会让之后每一次落盘都失败。
+ */
+function findDuplicateTerm(words: readonly WordRecord[]): string | null {
+  const seen = new Set<string>();
+
+  for (const word of words) {
+    const key = word.term.toLocaleLowerCase();
+    if (seen.has(key)) return word.term;
+    seen.add(key);
+  }
+
+  return null;
+}
+
+/**
  * 严格解析：用于导入用户选择的备份文件，出问题时抛出可读的中文错误。
  */
 export function parseBackup(text: string): AppDatabase {
@@ -199,6 +216,11 @@ export function parseBackup(text: string): AppDatabase {
     );
   }
 
+  const duplicate = findDuplicateTerm(words);
+  if (duplicate) {
+    throw new Error(`备份文件里「${duplicate}」出现了不止一次（单词不区分大小写）`);
+  }
+
   const normalized = normalizeDatabase(parsed);
   if (!normalized) {
     throw new Error("这个文件不是词锚的备份文件");
@@ -221,7 +243,7 @@ export function serializeBackup(db: AppDatabase): string {
   );
 }
 
-function backupFileName(date = new Date()): string {
+export function backupFileName(date = new Date()): string {
   const stamp = [
     date.getFullYear(),
     String(date.getMonth() + 1).padStart(2, "0"),
