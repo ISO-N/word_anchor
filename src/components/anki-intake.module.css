@@ -1,29 +1,25 @@
 .banner {
   display: flex;
+  margin-top: 16px;
+  padding: 10px 12px;
   align-items: flex-start;
   gap: 10px;
-  margin-top: 16px;
-  padding: 11px 12px 11px 14px;
-  border: 1px solid color-mix(in srgb, var(--pine) 26%, transparent);
-  border-left: 3px solid var(--pine);
   border-radius: var(--r-md);
-  background: var(--pine-wash);
+  background: var(--positive-wash);
 }
 
 .bannerError {
-  border-color: color-mix(in srgb, var(--clay) 30%, transparent);
-  border-left-color: var(--clay);
-  background: var(--clay-wash);
+  background: var(--negative-wash);
 }
 
 .icon {
   flex: 0 0 auto;
   margin-top: 1px;
-  color: var(--pine);
+  color: var(--positive);
 }
 
 .bannerError .icon {
-  color: var(--clay);
+  color: var(--negative);
 }
 
 .text {
@@ -36,12 +32,8 @@
 }
 
 .text strong {
-  color: var(--pine);
+  color: var(--ink);
   font-weight: 600;
-}
-
-.bannerError .text strong {
-  color: var(--clay);
 }
 
 .action {
@@ -49,13 +41,13 @@
   flex: 0 0 auto;
   align-items: center;
   gap: 5px;
-  color: var(--pine);
+  color: var(--positive);
   font-size: var(--t-sm);
   white-space: nowrap;
 }
 
 .action:hover {
-  color: var(--accent);
+  color: var(--ink);
 }
 
 .close {
@@ -66,14 +58,12 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border: 0;
   border-radius: var(--r-sm);
-  background: transparent;
   color: var(--muted);
 }
 
 .close:hover {
-  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  background: var(--active);
   color: var(--ink);
 }
 

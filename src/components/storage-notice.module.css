@@ -4,16 +4,15 @@
   padding: 12px 12px 12px 14px;
   align-items: flex-start;
   gap: 12px;
-  border: 1px solid color-mix(in srgb, var(--clay) 34%, transparent);
   border-radius: var(--r-md);
-  background: var(--clay-wash);
+  background: var(--negative-wash);
   color: var(--ink);
 }
 
 .icon {
   flex: 0 0 auto;
   margin-top: 2px;
-  color: var(--clay);
+  color: var(--negative);
 }
 
 .text {
@@ -30,15 +29,15 @@
 }
 
 .text a {
-  color: var(--clay);
+  color: var(--negative);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .close {
   display: inline-flex;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
@@ -47,6 +46,6 @@
 }
 
 .close:hover {
-  background: color-mix(in srgb, var(--clay) 12%, transparent);
-  color: var(--clay);
+  background: var(--active);
+  color: var(--ink);
 }

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { AnchorMark } from "@/components/anchor-mark";
 import { ThemeToggle } from "@/components/theme-toggle";
 import styles from "./site-header.module.css";
 
@@ -11,35 +12,15 @@ const NAV_ITEMS = [
   { href: "/words", label: "单词库" },
 ];
 
-function AnchorMark() {
-  return (
-    <svg
-      className={styles.mark}
-      viewBox="0 0 24 24"
-      fill="none"
-      width="22"
-      height="22"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path
-        d="M12 4v16M8 8h8M6 13c0 4.4 2.7 7 6 7s6-2.6 6-7M6 13a2 2 0 1 0 0 .1M18 13a2 2 0 1 0 0 .1"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
 export function SiteHeader() {
   const pathname = usePathname();
 
   return (
     <header className={styles.header} id="site-header">
-      <div className={`shell ${styles.inner}`}>
+      {/* 胶囊浮在同色的遮罩带里：带子静止时看不见，滚动时把内容整齐裁在它下面 */}
+      <div className={styles.capsule}>
         <Link className={styles.brand} href="/" aria-label="词锚首页" translate="no">
-          <AnchorMark />
+          <AnchorMark className={styles.mark} size={18} />
           <span className={styles.brandText}>词锚</span>
         </Link>
 

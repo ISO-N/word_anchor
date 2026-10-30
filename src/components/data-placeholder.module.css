@@ -1,21 +1,37 @@
 .placeholder {
   display: flex;
-  min-height: 46vh;
+  min-height: 42vh;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 14px;
   color: var(--muted);
-  font-size: var(--t-sm);
 }
 
 .mark {
-  color: var(--rule-strong);
+  color: var(--control);
+}
+
+/* 只有「还在读」这一个状态允许呼吸：它是反馈，不是入场 */
+@media (prefers-reduced-motion: no-preference) {
+  .mark {
+    animation: breathe 2.4s var(--ease) infinite;
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
 }
 
 .text {
   margin: 0;
   font-size: var(--t-sm);
   font-weight: 400;
-  letter-spacing: 0;
 }

@@ -12,7 +12,6 @@ import {
   subscribeSystemTheme,
   type ThemePreference,
 } from "@/lib/theme";
-import styles from "./theme-toggle.module.css";
 
 const OPTIONS = [
   { value: "auto", label: "跟随系统", Icon: Monitor },
@@ -43,16 +42,16 @@ export function ThemeToggle() {
   }, [preference]);
 
   return (
-    <div className={styles.group} role="group" aria-label="主题">
+    <div className="segment-group" role="group" aria-label="主题">
       {OPTIONS.map(({ value, label, Icon }) => (
         <button
           key={value}
           type="button"
-          className={styles.option}
+          className="segment"
           aria-pressed={preference === value}
           onClick={() => setPreference(value)}
         >
-          <Icon size={15} strokeWidth={1.7} />
+          <Icon size={14} strokeWidth={1.7} aria-hidden="true" />
           <span className="sr-only">{label}</span>
         </button>
       ))}

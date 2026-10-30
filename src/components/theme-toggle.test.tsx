@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { setPreference, THEME_STORAGE_KEY } from "@/lib/theme";
+import { setPreference, THEME_COLORS, THEME_STORAGE_KEY } from "@/lib/theme";
 
 describe("ThemeToggle", () => {
   beforeEach(() => {
@@ -60,7 +60,7 @@ describe("ThemeToggle", () => {
         document
           .querySelector('meta[name="theme-color"]')
           ?.getAttribute("content"),
-      ).toBe("#171a17"),
+      ).toBe(THEME_COLORS.dark),
     );
   });
 });
