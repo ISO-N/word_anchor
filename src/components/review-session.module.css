@@ -1,12 +1,28 @@
 .page {
-  padding-block-start: 20px;
+  display: grid;
+  /* 顶栏 + 页脚 + 页面内边距，剩下的是这张卡片的阅读区 */
+  min-height: calc(100dvh - var(--header-h) - 120px);
+  padding-block-start: 16px;
+  align-content: start;
+  grid-template-rows: auto 1fr;
 }
 
+/* 卡片收窄并居中：一张卡片的居中，是整页唯一一次居中机会 */
+.board {
+  width: 100%;
+  max-width: 760px;
+  margin: 20px auto 0;
+  padding: 30px 30px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--slip);
+  align-self: center;
+}
 /* ---------- 顶栏 ---------- */
 
 .topbar {
   display: flex;
-  min-height: 36px;
+  min-height: 32px;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px 10px;
@@ -17,37 +33,27 @@
 .back {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
 
 .back:hover {
-  color: var(--accent);
+  color: var(--ink);
 }
 
 .separator {
   width: 1px;
-  height: 14px;
-  background: var(--rule-strong);
+  height: 12px;
+  background: var(--control);
 }
 
 .tag {
-  display: inline-flex;
-  height: 22px;
-  padding: 0 8px;
-  align-items: center;
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  border-radius: 999px;
-  background: var(--accent-wash);
-  color: var(--accent);
-  font-size: var(--t-xs);
+  color: var(--ink-soft);
+  font-size: var(--t-sm);
 }
 
 .counter {
-  color: var(--ink-soft);
-  font-family: var(--font-term);
+  color: var(--muted);
   font-size: var(--t-sm);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
 }
 
 .topActions {
@@ -56,107 +62,57 @@
   align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px 10px;
+  gap: 8px 12px;
 }
 
 .timer {
   display: inline-flex;
-  height: 32px;
-  padding: 0 10px;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--rule);
-  border-radius: var(--r-sm);
+  align-items: baseline;
+  gap: 5px;
   color: var(--muted);
   font-size: var(--t-xs);
 }
 
 .timerValue {
-  color: var(--ink-soft);
-  font-family: var(--font-term);
-  font-size: var(--t-sm);
-  font-variant-numeric: tabular-nums;
-}
-
-/* ---------- 标题与得分 ---------- */
-
-.heading {
-  display: flex;
-  margin: 24px 0 22px;
-  align-items: flex-end;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.title {
-  margin: 0;
-  font-size: var(--t-3xl);
-  font-weight: 500;
-  line-height: 1.15;
-  letter-spacing: -0.015em;
-  text-wrap: balance;
-}
-
-.subtitle {
-  max-width: var(--readable);
-  margin: 8px 0 0;
-  color: var(--muted);
-  font-size: var(--t-sm);
-  text-wrap: pretty;
-}
-
-.score {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding-bottom: 2px;
-}
-
-.scoreValue {
   color: var(--ink);
-  font-family: var(--font-term);
-  font-size: var(--t-2xl);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-
-.scoreTotal {
-  color: var(--muted);
-  font-size: var(--t-lg);
-  font-weight: 400;
-}
-
-.scoreLabel {
-  color: var(--muted);
-  font-size: var(--t-xs);
+  font-size: var(--t-sm);
+  font-weight: 500;
 }
 
 /* ---------- 题面 ---------- */
 
 .board {
-  padding: 26px 28px 18px;
-  border: 1px solid var(--rule);
-  border-radius: var(--r-lg);
+  margin-top: 20px;
+  padding: 24px 26px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
   background: var(--slip);
-  box-shadow: var(--shadow-slip);
 }
-
-.promptLabel {
+.title {
   margin: 0;
-  color: var(--muted);
-  font-size: var(--t-xs);
-  letter-spacing: 0.12em;
+  font-size: var(--t-2xl);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
 }
 
+.subtitle {
+  max-width: var(--readable);
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: var(--t-sm);
+  text-wrap: pretty;
+}
+
+/* 题面就是这屏最大的东西：它既是标题，也是问题本身 */
 .prompt {
-  margin: 8px 0 26px;
+  margin: 0 0 22px;
   font-family: var(--font-term);
-  font-size: var(--t-4xl);
+  font-size: clamp(1.75rem, 2.2vw, 2.125rem);
   font-weight: 500;
   line-height: 1.08;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   overflow-wrap: anywhere;
   text-wrap: balance;
 }
@@ -168,51 +124,55 @@
 
 .options {
   display: grid;
-  margin-inline: auto;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .option {
   display: flex;
   width: 100%;
   min-height: 56px;
-  padding: 12px 16px;
+  padding: 12px 14px;
   align-items: center;
-  gap: 12px;
-  border: 1px solid var(--rule-strong);
-  border-radius: var(--r-md);
-  background: var(--paper);
+  gap: 10px;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-sm);
+  background: var(--slip);
   color: var(--ink);
-  font-size: var(--t-md);
-  line-height: 1.55;
+  font-size: var(--t-sm);
+  line-height: 1.5;
   text-align: left;
-  transition: border-color var(--dur) var(--ease),
-    background var(--dur) var(--ease), color var(--dur) var(--ease);
+  transition: border-color var(--dur-fast) var(--ease),
+    background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
 
 .option:hover:not([aria-disabled="true"]) {
   border-color: var(--ink-soft);
-  background: var(--slip);
+  background: var(--active);
 }
 
 .option[aria-disabled="true"] {
   cursor: default;
 }
 
+/* 判定之后，没被选中的选项退到背景里，只剩错选与正解两个标记 */
+.option[aria-disabled="true"]:not(.correct):not(.wrong) {
+  border-color: var(--rule);
+  color: var(--muted);
+}
+
+/* 序号是真正的键盘快捷键（1–4），所以它留在选项上 */
 .optionKey {
   display: inline-flex;
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--rule);
-  border-radius: var(--r-sm);
+  border-radius: 4px;
+  background: var(--active);
   color: var(--muted);
-  font-family: var(--font-term);
-  font-size: var(--t-sm);
-  font-variant-numeric: tabular-nums;
+  font-size: var(--t-xs);
 }
 
 .optionText {
@@ -226,20 +186,20 @@
 }
 
 .option.correct {
-  border-color: color-mix(in srgb, var(--pine) 55%, transparent);
-  background: var(--pine-wash);
-  color: var(--pine);
+  border-color: var(--positive);
+  background: var(--positive-wash);
+  color: var(--positive);
 }
 
 .option.wrong {
-  border-color: color-mix(in srgb, var(--clay) 55%, transparent);
-  background: var(--clay-wash);
-  color: var(--clay);
+  border-color: var(--negative);
+  background: var(--negative-wash);
+  color: var(--negative);
 }
 
 .option.correct .optionKey,
 .option.wrong .optionKey {
-  border-color: currentColor;
+  background: transparent;
   color: currentColor;
 }
 
@@ -247,10 +207,12 @@
 
 .foot {
   display: flex;
-  margin-top: 24px;
+  margin-top: 20px;
+  padding-top: 12px;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px 16px;
+  gap: 10px 16px;
+  border-top: 1px solid var(--rule);
 }
 
 .progress {
@@ -261,7 +223,7 @@
   gap: 10px;
   color: var(--muted);
   font-size: var(--t-xs);
-  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .track {
@@ -270,26 +232,19 @@
 
 .feedback {
   display: inline-flex;
-  min-height: 32px;
-  padding: 0 10px;
+  min-height: 28px;
   align-items: center;
   gap: 6px;
-  border: 1px solid transparent;
-  border-radius: var(--r-sm);
   color: var(--muted);
   font-size: var(--t-xs);
 }
 
 .feedbackCorrect {
-  border-color: color-mix(in srgb, var(--pine) 30%, transparent);
-  background: var(--pine-wash);
-  color: var(--pine);
+  color: var(--positive);
 }
 
 .feedbackWrong {
-  border-color: color-mix(in srgb, var(--clay) 30%, transparent);
-  background: var(--clay-wash);
-  color: var(--clay);
+  color: var(--negative);
 }
 
 /* ---------- 结算 ---------- */
@@ -300,51 +255,23 @@
 
 .resultActions {
   display: flex;
-  margin-top: 24px;
+  margin-top: 22px;
   flex-wrap: wrap;
-  gap: 10px;
-}
-
-.stats {
-  display: grid;
-  padding: 18px 0;
-  border-block: 1px solid var(--rule);
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.statItem {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.statValue {
-  font-family: var(--font-term);
-  font-size: var(--t-2xl);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
+  gap: 8px;
 }
 
 .statTotal {
   color: var(--muted);
-  font-size: var(--t-lg);
+  font-size: var(--t-sm);
   font-weight: 400;
-}
-
-.statLabel {
-  color: var(--muted);
-  font-size: var(--t-xs);
 }
 
 .allCorrect {
   display: flex;
-  margin: 18px 0 0;
+  margin: 16px 0 0;
   align-items: center;
   gap: 8px;
-  color: var(--pine);
+  color: var(--positive);
   font-size: var(--t-sm);
 }
 
@@ -362,29 +289,28 @@
   display: grid;
   margin: 0;
   padding: 0;
-  gap: 6px;
+  gap: 1px;
   list-style: none;
 }
 
 .wrongItem {
   display: flex;
-  padding: 8px 12px;
+  padding: 9px 2px;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 4px 8px;
-  border: 1px solid var(--rule);
-  border-radius: var(--r-sm);
-  background: var(--paper);
+  gap: 4px 10px;
+  border-bottom: 1px solid var(--rule);
   font-size: var(--t-sm);
 }
 
 .wrongTerm {
   font-family: var(--font-term);
-  font-weight: 600;
+  font-size: var(--t-md);
+  font-weight: 500;
 }
 
 .wrongMeaning {
-  color: var(--ink-soft);
+  color: var(--muted);
   overflow-wrap: anywhere;
 }
 
@@ -392,30 +318,21 @@
   margin-inline-start: auto;
   color: var(--muted);
   font-size: var(--t-xs);
-  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- 窄屏 ---------- */
 
 @media (max-width: 760px) {
-  .heading {
-    align-items: flex-start;
+  .page {
+    min-height: 0;
   }
 
   .board {
-    padding: 20px 18px 14px;
-  }
-
-  .prompt {
-    font-size: var(--t-3xl);
+    padding: 18px 16px 12px;
   }
 
   .options {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

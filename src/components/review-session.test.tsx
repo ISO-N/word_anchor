@@ -27,7 +27,8 @@ const MEANING_BY_TERM = new Map(
 );
 
 function currentTerm(): string {
-  return screen.getByRole("heading", { level: 2 }).textContent ?? "";
+  /* 题面单词就是这屏的 h1：它既是标题，也是问题本身 */
+  return screen.getByRole("heading", { level: 1 }).textContent ?? "";
 }
 
 function currentMeaning(): string {

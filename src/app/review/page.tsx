@@ -20,9 +20,11 @@ export default function ReviewPage() {
   }
 
   return (
-    <div className="shell page-shell">
+    <div className="shell page-fill page-shell">
       {data.words.length < 2 ? (
-        <ReviewEmptyState hasWords={data.words.length === 1} />
+        <div className="empty-stage">
+          <ReviewEmptyState hasWords={data.words.length === 1} />
+        </div>
       ) : (
         <ReviewSession words={data.words} />
       )}

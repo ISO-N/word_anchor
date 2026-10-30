@@ -10,7 +10,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { buttonClass } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { formatClock } from "@/lib/format";
@@ -35,6 +35,10 @@ type Phase = "answering" | "revealed";
 
 /** 判定后停留多久自动进入下一题；答错留更久，方便看清正确答案 */
 const REVEAL_DELAY_MS = { correct: 900, wrong: 1600 } as const;
+
+/** 入场延迟：顶栏 0，题面 1 */
+const rise = (step: number): CSSProperties =>
+  ({ "--i": step }) as CSSProperties;
 
 function wrongEntriesOf(answers: Answer[]) {
   const byWord = new Map<
@@ -309,27 +313,25 @@ export function ReviewSession({ words }: { words: WordRecord[] }) {
 
   const resultSummary = (
     <>
-      <div className={styles.stats}>
-        <span className={styles.statItem}>
-          <span className={styles.statValue}>
+      <div className="data-strip">
+        <span className="data-cell">
+          <span className="data-value">
             {correctCount}
             <span className={styles.statTotal}> / {answeredCount}</span>
           </span>
-          <span className={styles.statLabel}>答对</span>
+          <span className="data-label">答对</span>
         </span>
-        <span className={styles.statItem}>
-          <span className={styles.statValue}>{accuracy}%</span>
-          <span className={styles.statLabel}>正确率</span>
+        <span className="data-cell">
+          <span className="data-value">{accuracy}%</span>
+          <span className="data-label">正确率</span>
         </span>
-        <span className={styles.statItem}>
-          <span className={styles.statValue}>
-            {formatClock(resultElapsed)}
-          </span>
-          <span className={styles.statLabel}>用时</span>
+        <span className="data-cell">
+          <span className="data-value">{formatClock(resultElapsed)}</span>
+          <span className="data-label">用时</span>
         </span>
-        <span className={styles.statItem}>
-          <span className={styles.statValue}>{bestStreak}</span>
-          <span className={styles.statLabel}>最高连击</span>
+        <span className="data-cell">
+          <span className="data-value">{bestStreak}</span>
+          <span className="data-label">最高连击</span>
         </span>
       </div>
 
@@ -361,9 +363,9 @@ export function ReviewSession({ words }: { words: WordRecord[] }) {
 
   return (
     <div className={styles.page}>
-      <div className={styles.topbar}>
+      <div className={`rise ${styles.topbar}`} style={rise(0)}>
         <Link href="/words" className={styles.back}>
-          <ArrowLeft size={16} strokeWidth={1.8} />
+          <ArrowLeft size={15} strokeWidth={1.9} aria-hidden="true" />
           单词库
         </Link>
         <span className={styles.separator} aria-hidden="true" />
@@ -377,7 +379,7 @@ export function ReviewSession({ words }: { words: WordRecord[] }) {
           <span className={styles.timer}>
             连击
             <span className={styles.timerValue}>{streak}</span>
-            <Flame size={14} strokeWidth={1.8} aria-hidden="true" />
+            <Flame size={13} strokeWidth={1.9} aria-hidden="true" />
           </span>
           <span className={styles.timer}>
             用时
@@ -388,14 +390,18 @@ export function ReviewSession({ words }: { words: WordRecord[] }) {
             className={buttonClass({ variant: "ghost", size: "sm" })}
             onClick={restart}
           >
-            <RotateCcw size={15} strokeWidth={1.8} />
+            <RotateCcw size={14} strokeWidth={1.9} aria-hidden="true" />
             重新开始
           </button>
         </div>
       </div>
 
       {finished ? (
-        <section className={styles.board} aria-labelledby="review-result-title">
+        <section
+          className={`rise ${styles.board}`}
+          style={rise(1)}
+          aria-labelledby="review-result-title"
+        >
           <div className={styles.resultHead}>
             <h1 className={styles.title} id="review-result-title">
               本局结束
@@ -407,46 +413,33 @@ export function ReviewSession({ words }: { words: WordRecord[] }) {
           {resultSummary}
           <div className={styles.resultActions}>
             <button type="button" className={buttonClass()} onClick={restart}>
-              <RotateCcw size={16} strokeWidth={1.8} />
+              <RotateCcw size={16} strokeWidth={1.8} aria-hidden="true" />
               再来一局
             </button>
             <Link href="/words" className={buttonClass({ variant: "ghost" })}>
               返回单词库
-              <ArrowRight size={16} strokeWidth={1.8} />
+              <ArrowRight size={16} strokeWidth={1.8} aria-hidden="true" />
             </Link>
           </div>
         </section>
       ) : (
         <>
-          <div className={styles.heading}>
-            <div>
-              <h1 className={styles.title} id="review-title">
-                选出它的释义
-              </h1>
-              <p className={styles.subtitle}>
-                从全库随机出题，选项里只有一个是对的；点一个答案立刻见分晓。
-              </p>
-            </div>
-            <p className={styles.score}>
-              <span className={styles.scoreValue}>
-                {correctCount}
-                <span className={styles.scoreTotal}> / {answeredCount}</span>
-              </span>
-              <span className={styles.scoreLabel}>本局答对</span>
-            </p>
-          </div>
-
-          <section className={styles.board} aria-labelledby="review-title">
-            <p className={styles.promptLabel}>单词</p>
-            <h2
+          <section
+            className={`rise ${styles.board}`}
+            style={rise(1)}
+            aria-labelledby="review-title"
+          >
+            {/* 这屏的问题就是「这个词是什么意思」，所以词本身就是 h1 */}
+            <h1
               className={styles.prompt}
+              id="review-title"
               lang="en"
               translate="no"
               ref={promptRef}
               tabIndex={-1}
             >
               {question.term}
-            </h2>
+            </h1>
 
             <div
               className={styles.options}
