@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -17,7 +17,7 @@ import { buttonClass } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Pager } from "@/components/ui/pager";
 import { MAX_MEANING_LENGTH, MAX_TERM_LENGTH } from "@/lib/data";
-import { formatShortDate } from "@/lib/format";
+import { formatIndex, formatListLabel, formatShortDate } from "@/lib/format";
 import { paginate, parsePageParam } from "@/lib/pagination";
 import { addWord, editWord, removeWord, removeWords } from "@/lib/store";
 import type { WordRecord } from "@/lib/types";
@@ -32,6 +32,10 @@ type FormState = { term: string; meaning: string };
 type FieldErrors = { term?: string; meaning?: string };
 
 const EMPTY_FORM: FormState = { term: "", meaning: "" };
+
+/** 入场延迟：标题 0，摘要 1，表格 2 */
+const rise = (step: number): CSSProperties =>
+  ({ "--i": step }) as CSSProperties;
 
 export function WordManager({
   words,
@@ -336,7 +340,7 @@ export function WordManager({
 
   return (
     <>
-      <section className="page-heading">
+      <section className={`rise page-heading`} style={rise(0)}>
         <div>
           <h1>单词库</h1>
           <p className="page-description">
@@ -345,11 +349,11 @@ export function WordManager({
         </div>
         <div className="heading-actions">
           <Link href="/lists" className={buttonClass({ variant: "ghost" })}>
-            <BookOpen size={17} strokeWidth={1.8} />
+            <BookOpen size={16} strokeWidth={1.9} aria-hidden="true" />
             查看清单
           </Link>
           <button type="button" className={buttonClass()} onClick={openCreate}>
-            <Plus size={17} strokeWidth={1.8} />
+            <Plus size={16} strokeWidth={1.9} aria-hidden="true" />
             添加单词
           </button>
         </div>
@@ -357,7 +361,7 @@ export function WordManager({
 
       {intro}
 
-      <div className={styles.summary}>
+      <div className={`rise ${styles.summary}`} style={rise(1)}>
         <p className={styles.count}>
           <strong>{words.length}</strong>
           {words.length === 0 ? "个单词等着被记下" : "个单词"}
@@ -431,7 +435,7 @@ export function WordManager({
               className={buttonClass({ variant: "danger", size: "sm" })}
               onClick={openBulkDelete}
             >
-              <Trash2 size={15} strokeWidth={1.8} aria-hidden="true" />
+              <Trash2 size={14} strokeWidth={1.9} aria-hidden="true" />
               删除选中
             </button>
           </div>
@@ -441,12 +445,12 @@ export function WordManager({
       {words.length === 0 ? (
         <div className="empty-state">
           <span className="empty-state-icon">
-            <BookOpen size={20} strokeWidth={1.8} />
+            <BookOpen size={22} strokeWidth={1.8} aria-hidden="true" />
           </span>
           <h2>词库还是空的</h2>
           <p>从第一个想记住的单词开始吧。</p>
           <button type="button" className={buttonClass()} onClick={openCreate}>
-            <Plus size={17} strokeWidth={1.8} />
+            <Plus size={16} strokeWidth={1.9} aria-hidden="true" />
             添加第一个单词
           </button>
         </div>
@@ -465,7 +469,8 @@ export function WordManager({
       ) : (
         <div
           ref={tableRef}
-          className={styles.tableWrap}
+          className={`rise ${styles.tableWrap}`}
+          style={rise(2)}
           role="region"
           aria-label={`单词列表，第 ${pageData.page} 页`}
           tabIndex={-1}
@@ -490,8 +495,12 @@ export function WordManager({
                 <th className={styles.colIndex} scope="col">
                   #
                 </th>
-                <th scope="col">单词</th>
-                <th scope="col">释义</th>
+                <th className={styles.colTerm} scope="col">
+                  单词
+                </th>
+                <th className={styles.colMeaning} scope="col">
+                  释义
+                </th>
                 <th className={styles.colReview} scope="col">
                   复习
                 </th>
@@ -530,14 +539,14 @@ export function WordManager({
                       </label>
                     </td>
                     <td className={styles.colIndex}>
-                      {String(orderById.get(word.id) ?? 0).padStart(2, "0")}
+                      {formatIndex(orderById.get(word.id) ?? 0)}
                     </td>
-                    <td>
+                    <td className={styles.colTerm}>
                       <span className={styles.term} lang="en" translate="no">
                         {word.term}
                       </span>
                     </td>
-                    <td>
+                    <td className={styles.colMeaning}>
                       <span className={styles.meaning}>{word.meaning}</span>
                     </td>
                     <td className={styles.colReview}>
@@ -564,11 +573,11 @@ export function WordManager({
                           href={`/practice/?list=${listIndex}&from=words`}
                           className={styles.listLink}
                           translate="no"
-                          aria-label={`LIST ${String(listIndex).padStart(2, "0")}，含 ${word.term}，进入连线练习`}
+                          aria-label={`${formatListLabel(listIndex)}，含 ${word.term}，进入连线练习`}
                         >
                           <span className={styles.listPrefix}>LIST</span>
                           <span className={styles.listNumber}>
-                            {String(listIndex).padStart(2, "0")}
+                            {formatIndex(listIndex)}
                           </span>
                           <ArrowUpRight
                             className={styles.listArrow}
@@ -692,7 +701,7 @@ export function WordManager({
           </div>
 
           {formError && (
-            <p className="field-error" role="alert" style={{ marginTop: 12 }}>
+            <p className={`field-error ${styles.formError}`} role="alert">
               {formError}
             </p>
           )}

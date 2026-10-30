@@ -1,39 +1,44 @@
-.panel {
-  margin-top: 40px;
-  padding-top: 20px;
+/* 设置行：左边一列标签，右边一块面板。数据页底部的两块内容用同一套。 */
+.row {
+  display: grid;
+  margin-top: 32px;
+  padding-block-start: 24px;
   border-top: 1px solid var(--rule);
+  gap: 14px 40px;
+}
+
+.label {
+  min-width: 0;
 }
 
 .head {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 8px 16px;
+  gap: 6px 10px;
 }
 
 .title {
   margin: 0;
-  font-size: var(--t-lg);
+  font-size: var(--t-md);
   font-weight: 600;
 }
 
 .badge {
   display: inline-flex;
-  height: 24px;
-  padding: 0 10px;
+  height: 22px;
+  padding: 0 8px;
   align-items: center;
   gap: 5px;
-  border: 1px solid color-mix(in srgb, var(--pine) 30%, transparent);
   border-radius: 999px;
-  background: var(--pine-wash);
-  color: var(--pine);
+  background: var(--paper-sunk);
+  color: var(--ink-soft);
   font-size: var(--t-xs);
   white-space: nowrap;
 }
 
 .badgeOff {
-  border-color: var(--rule);
+  border: 1px solid var(--control);
   background: transparent;
   color: var(--muted);
 }
@@ -42,25 +47,40 @@
   max-width: var(--readable);
   margin: 6px 0 0;
   color: var(--muted);
+  font-size: var(--t-xs);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+
+.panel {
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  background: var(--paper-sunk);
+}
+
+.panelText {
+  max-width: var(--readable);
+  margin: 0;
+  color: var(--ink-soft);
   font-size: var(--t-sm);
   text-wrap: pretty;
 }
 
 .code {
   padding: 1px 5px;
-  border: 1px solid var(--rule);
-  border-radius: var(--r-sm);
-  background: var(--paper-sunk);
-  color: var(--ink-soft);
+  border-radius: 4px;
+  background: var(--slip);
+  color: var(--ink);
   font-family: var(--font-sans);
   font-size: var(--t-xs);
 }
 
 .facts {
   display: flex;
-  margin: 14px 0 0;
+  margin: 0;
   flex-wrap: wrap;
-  gap: 6px 20px;
+  gap: 8px 28px;
 }
 
 .fact {
@@ -76,14 +96,13 @@
 
 .fact dd {
   margin: 0;
-  color: var(--ink-soft);
+  color: var(--ink);
   font-size: var(--t-sm);
-  font-variant-numeric: tabular-nums;
 }
 
 .actions {
   display: flex;
-  margin-top: 16px;
+  margin-top: 14px;
   flex-wrap: wrap;
   gap: 8px;
 }
@@ -99,18 +118,24 @@
 }
 
 .status {
-  margin: 14px 0 0;
-  color: var(--pine);
-  font-size: var(--t-sm);
+  margin: 12px 0 0;
+  color: var(--positive);
+  font-size: var(--t-xs);
 }
 
 .statusError {
-  color: var(--clay);
+  color: var(--negative);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .spin {
     animation: none;
+  }
+}
+
+@media (min-width: 760px) {
+  .row {
+    grid-template-columns: 240px minmax(0, 1fr);
   }
 }
 

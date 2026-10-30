@@ -112,79 +112,89 @@ export function DataBackup() {
   const importCount = pending?.kind === "import" ? pending.backup.words.length : 0;
 
   return (
-    <section className={styles.backup} aria-labelledby="backup-title">
-      <div className={styles.head}>
+    <section className={styles.row} aria-labelledby="backup-title">
+      <div className={styles.label}>
         <h2 className={styles.title} id="backup-title">
           本地数据
         </h2>
-      </div>
-
-      <p className={styles.text}>
-        词库只存在这台电脑上：换设备、重装系统或误删应用数据都看不到它，
-        导出备份是最稳妥的保险。
-      </p>
-
-      <div className={styles.stats}>
-        <span className={styles.stat}>{wordCount} 个单词</span>
-        <span className={styles.stat}>{practicedCount} 个词练过</span>
-        <span className={`${styles.stat} ${styles.statSafe}`}>
-          <ShieldCheck size={13} strokeWidth={1.8} />
-          不上传任何服务器
-        </span>
-      </div>
-
-      <div className={styles.actions}>
-        <button
-          type="button"
-          className={buttonClass({ variant: "ghost", size: "sm" })}
-          onClick={handleExport}
-          disabled={!data}
-        >
-          <Download size={15} strokeWidth={1.8} />
-          导出备份
-        </button>
-        <button
-          type="button"
-          className={buttonClass({ variant: "ghost", size: "sm" })}
-          onClick={() => void handleImport()}
-          disabled={!data}
-        >
-          <Upload size={15} strokeWidth={1.8} />
-          导入备份
-        </button>
-        <button
-          type="button"
-          className={`${buttonClass({ variant: "ghost", size: "sm" })} ${styles.danger}`}
-          onClick={() => setPending({ kind: "clear" })}
-          disabled={!data}
-        >
-          <Trash2 size={15} strokeWidth={1.8} />
-          清空数据
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="application/json,.json"
-          className="sr-only"
-          aria-hidden="true"
-          tabIndex={-1}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            event.target.value = "";
-            void handleImportFile(file);
-          }}
-        />
-      </div>
-
-      {(message || error) && (
-        <p
-          className={`${styles.status}${error ? ` ${styles.statusError}` : ""}`}
-          role="status"
-          aria-live="polite"
-        >
-          {error || message}
+        <p className={styles.text}>
+          词库只存在这台电脑上：换设备、重装系统或误删应用数据都看不到它，
+          导出备份是最稳妥的保险。
         </p>
-      )}
+      </div>
+
+      <div className={styles.panel}>
+        <dl className={styles.facts}>
+          <div className={styles.fact}>
+            <dt>词库</dt>
+            <dd>{wordCount} 个单词</dd>
+          </div>
+          <div className={styles.fact}>
+            <dt>练过</dt>
+            <dd>{practicedCount} 个词</dd>
+          </div>
+          <div className={styles.fact}>
+            <dt>联网</dt>
+            <dd>
+              <ShieldCheck size={13} strokeWidth={1.9} aria-hidden="true" />
+              不上传任何服务器
+            </dd>
+          </div>
+        </dl>
+
+        <div className={styles.actions}>
+          <button
+            type="button"
+            className={buttonClass({ variant: "ghost", size: "sm" })}
+            onClick={handleExport}
+            disabled={!data}
+          >
+            <Download size={14} strokeWidth={1.9} aria-hidden="true" />
+            导出备份
+          </button>
+          <button
+            type="button"
+            className={buttonClass({ variant: "ghost", size: "sm" })}
+            onClick={() => void handleImport()}
+            disabled={!data}
+          >
+            <Upload size={14} strokeWidth={1.9} aria-hidden="true" />
+            导入备份
+          </button>
+          <button
+            type="button"
+            className={`${buttonClass({ variant: "ghost", size: "sm" })} ${styles.danger}`}
+            onClick={() => setPending({ kind: "clear" })}
+            disabled={!data}
+          >
+            <Trash2 size={14} strokeWidth={1.9} aria-hidden="true" />
+            清空数据
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="application/json,.json"
+            className="sr-only"
+            aria-hidden="true"
+            tabIndex={-1}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              void handleImportFile(file);
+            }}
+          />
+        </div>
+
+        {(message || error) && (
+          <p
+            className={`${styles.status}${error ? ` ${styles.statusError}` : ""}`}
+            role="status"
+            aria-live="polite"
+          >
+            {error || message}
+          </p>
+        )}
+      </div>
 
       <Dialog
         open={pending !== null}

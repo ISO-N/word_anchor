@@ -1,20 +1,19 @@
-.backup {
-  margin-top: 40px;
-  padding-top: 20px;
+/* 与「桌面端」同一套设置行版式 */
+.row {
+  display: grid;
+  margin-top: 32px;
+  padding-block-start: 24px;
   border-top: 1px solid var(--rule);
+  gap: 14px 40px;
 }
 
-.head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px 16px;
+.label {
+  min-width: 0;
 }
 
 .title {
   margin: 0;
-  font-size: var(--t-lg);
+  font-size: var(--t-md);
   font-weight: 600;
 }
 
@@ -22,59 +21,76 @@
   max-width: var(--readable);
   margin: 6px 0 0;
   color: var(--muted);
-  font-size: var(--t-sm);
+  font-size: var(--t-xs);
+  line-height: 1.55;
   text-wrap: pretty;
 }
 
-.stats {
-  display: flex;
-  margin-top: 12px;
-  flex-wrap: wrap;
-  gap: 6px;
+.panel {
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: var(--r-md);
+  background: var(--paper-sunk);
 }
 
-.stat {
-  display: inline-flex;
-  padding: 3px 9px;
-  align-items: center;
-  gap: 5px;
-  border: 1px solid var(--rule);
-  border-radius: 999px;
+.facts {
+  display: flex;
+  margin: 0;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+}
+
+.fact {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.fact dt {
   color: var(--muted);
   font-size: var(--t-xs);
-  font-variant-numeric: tabular-nums;
 }
 
-.statSafe {
-  border-color: color-mix(in srgb, var(--pine) 30%, transparent);
-  background: var(--pine-wash);
-  color: var(--pine);
+.fact dd {
+  display: inline-flex;
+  margin: 0;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink);
+  font-size: var(--t-sm);
 }
 
 .actions {
   display: flex;
-  margin-top: 16px;
+  margin-top: 14px;
   flex-wrap: wrap;
   gap: 8px;
 }
 
 .danger {
-  color: var(--clay);
+  color: var(--muted);
 }
 
 .danger:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--clay) 45%, transparent);
-  background: var(--clay-wash);
+  border-color: var(--negative);
+  background: var(--negative-wash);
+  color: var(--negative);
 }
 
 .status {
-  margin: 14px 0 0;
-  color: var(--pine);
-  font-size: var(--t-sm);
+  margin: 12px 0 0;
+  color: var(--positive);
+  font-size: var(--t-xs);
 }
 
 .statusError {
-  color: var(--clay);
+  color: var(--negative);
+}
+
+@media (min-width: 760px) {
+  .row {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 620px) {

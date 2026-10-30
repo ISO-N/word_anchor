@@ -103,4 +103,22 @@ describe("单词库的清单入口", () => {
     expect(screen.queryByRole("table")).toBeNull();
     expect(screen.queryByRole("link", { name: /^LIST / })).toBeNull();
   });
+
+  it("每一行都带着全部字段：窄屏只是换行，不丢列", () => {
+    renderWords();
+
+    const region = screen.getByRole("region", {
+      name: "单词列表，第 1 页",
+    });
+    const row = within(region).getAllByRole("row")[1];
+
+    /* 勾选 / 序号 / 单词 / 释义 / 复习 / 清单 / 加入时间 / 操作 */
+    expect(within(row).getAllByRole("cell")).toHaveLength(8);
+    expect(
+      within(row).getByRole("checkbox", { name: "选择 word-1" }),
+    ).toBeInTheDocument();
+    expect(within(row).getByText("释义 1")).toBeInTheDocument();
+    expect(within(row).getByText("—")).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: "编辑 word-1" })).toBeInTheDocument();
+  });
 });
