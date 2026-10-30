@@ -19,7 +19,20 @@ EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
 REQUIRED = {"__init__.py", "manifest.json", "config.json"}
 
 
+def _use_utf8_stdio() -> None:
+    """Windows 控制台默认 cp1252，直接 print 中文会 UnicodeEncodeError。
+
+    GitHub Actions 的 windows runner 就是这个默认值，所以这里统一成 UTF-8；
+    终端编码不匹配时最多显示乱码，不会让打包失败。
+    """
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main() -> int:
+    _use_utf8_stdio()
+
     if not SOURCE.is_dir():
         print("找不到插件目录：{}".format(SOURCE))
         return 1

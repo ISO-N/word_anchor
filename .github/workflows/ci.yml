@@ -18,6 +18,9 @@ jobs:
     # 发布步骤要删除旧 release、创建新 release
     permissions:
       contents: write
+    env:
+      # Windows runner 的默认控制台编码是 cp1252，脚本里 print 中文会炸
+      PYTHONUTF8: "1"
 
     steps:
       - uses: actions/checkout@v7
