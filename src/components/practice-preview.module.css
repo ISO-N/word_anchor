@@ -8,10 +8,10 @@
 
 .row {
   display: grid;
-  padding: 10px 0;
+  padding: 6px 0;
   align-items: center;
-  grid-template-columns: minmax(0, 1fr) 48px minmax(0, 1.15fr);
-  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1.1fr);
+  gap: 8px;
 }
 
 .term {
@@ -25,38 +25,49 @@
   white-space: nowrap;
 }
 
+/* 曲线是「即将要连的线」，用未判定时的灰 */
 .link {
-  width: 48px;
+  width: 44px;
   height: 20px;
-  color: var(--accent);
+  color: var(--line-idle);
 }
 
 .link path {
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.4;
+  stroke-width: 1.5;
   stroke-linecap: round;
 }
 
+/* 待填的释义位：形状就是任务本身，所以它要有真正的高度 */
 .blank {
   display: block;
-  height: 10px;
-  border: 1px dashed var(--rule-strong);
-  border-radius: 999px;
+  height: 32px;
+  border: 1px dashed var(--control);
+  border-radius: var(--r-sm);
 }
 
 .hint {
-  margin: 10px 0 0;
+  margin: 8px 0 0;
   color: var(--muted);
   font-size: var(--t-xs);
 }
 
 @media (max-width: 420px) {
   .row {
-    grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1.15fr);
+    grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr);
+    gap: 6px;
   }
 
   .link {
-    width: 32px;
+    width: 28px;
+  }
+
+  .blank {
+    height: 28px;
+  }
+
+  .term {
+    font-size: var(--t-md);
   }
 }

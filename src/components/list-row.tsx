@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight, Check } from "lucide-react";
+import { formatIndex } from "@/lib/format";
 import type { StudyList } from "@/lib/types";
 import styles from "./list-row.module.css";
 
@@ -12,6 +13,17 @@ type ListRowProps = {
 export function ListRow({ list, isNext = false }: ListRowProps) {
   const completed = list.status === "completed";
   const firstWord = list.words[0]?.term ?? "空清单";
+  /* 首词已经是这一行的大字，副行给剩下的词：比「等 N 个词」多告诉你一些东西 */
+  const rest = list.words
+    .slice(1, 5)
+    .map((word) => word.term)
+    .join(" · ");
+  const summary = [
+    rest || `${list.words.length} 个词`,
+    list.isPartial ? "未满一组" : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const label = `清单 ${list.index}，${firstWord} 等 ${list.words.length} 个词，第 ${list.startOrder} 至 ${list.endOrder} 个词，${completed ? "已完成" : "待练习"}`;
 
   return (
@@ -20,17 +32,16 @@ export function ListRow({ list, isNext = false }: ListRowProps) {
       className={`${styles.row}${isNext ? ` ${styles.next}` : ""}`}
       aria-label={label}
     >
-      <span className={styles.number}>{String(list.index).padStart(2, "0")}</span>
+      <span className={styles.number}>{formatIndex(list.index)}</span>
 
       <span className={styles.head}>
         <span className={styles.term} lang="en" translate="no">
           {firstWord}
         </span>
-        <span className={styles.summary}>
-          {list.words.length > 1
-            ? `等 ${list.words.length} 个词`
-            : "1 个词"}
-          {list.isPartial ? "，未满一组" : ""}
+        {/* 宽屏列出这一组里还有哪些词；窄屏只留数量——截在半句话上比不写还难读 */}
+        <span className={styles.summary}>{summary}</span>
+        <span className={styles.count}>
+          {list.words.length} 个词{list.isPartial ? " · 未满一组" : ""}
         </span>
       </span>
 
