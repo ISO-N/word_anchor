@@ -19,13 +19,14 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
 } from "react";
 import { buttonClass } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { FeedbackModeControl } from "@/components/feedback-mode-control";
 import { arrangeBoard, type BoardOrder } from "@/lib/board";
 import { curvePath } from "@/lib/geometry";
-import { formatClock } from "@/lib/format";
+import { formatClock, formatIndex, formatListLabel } from "@/lib/format";
 import { markListComplete } from "@/lib/store";
 import type { FeedbackMode, PracticeOrigin, WordRecord } from "@/lib/types";
 import styles from "./practice-session.module.css";
@@ -63,6 +64,10 @@ function pairKey(termId: number, meaningId: number): string {
 }
 
 const EMPTY_BOARD: BoardOrder = { terms: [], meanings: [] };
+
+/** 入场延迟：顶栏 0，标题 1，板面 2 */
+const rise = (step: number): CSSProperties =>
+  ({ "--i": step }) as CSSProperties;
 
 export function PracticeSession({
   listIndex,
@@ -477,21 +482,23 @@ export function PracticeSession({
 
   if (total === 0) {
     return (
-      <div className="shell page-shell">
-        <div className="empty-state">
-          <span className="empty-state-icon">
-            <Link2 size={20} strokeWidth={1.8} />
-          </span>
-          <h1>这份清单还没有单词</h1>
-          <p>先往词库添加单词，再回来开始练习。</p>
-          <div className={styles.emptyActions}>
-            <Link href="/words" className={buttonClass()}>
-              去添加单词
-              <ArrowRight size={16} strokeWidth={1.8} />
-            </Link>
-            <Link href="/lists" className={buttonClass({ variant: "ghost" })}>
-              返回清单
-            </Link>
+      <div className="shell page-fill page-shell">
+        <div className="empty-stage">
+          <div className="empty-state">
+            <span className="empty-state-icon">
+              <Link2 size={22} strokeWidth={1.8} aria-hidden="true" />
+            </span>
+            <h1>这份清单还没有单词</h1>
+            <p>先往词库添加单词，再回来开始练习。</p>
+            <div className={styles.emptyActions}>
+              <Link href="/words" className={buttonClass()}>
+                去添加单词
+                <ArrowRight size={16} strokeWidth={1.9} />
+              </Link>
+              <Link href="/lists" className={buttonClass({ variant: "ghost" })}>
+                返回清单
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -500,49 +507,53 @@ export function PracticeSession({
 
   return (
     <div className={`shell ${styles.page}`}>
-      <div className={styles.topbar}>
+      <div className={`rise ${styles.topbar}`} style={rise(0)}>
         <Link
           href={origin === "words" ? "/words" : "/lists"}
           className={styles.back}
         >
-          <ArrowLeft size={16} strokeWidth={1.8} />
+          <ArrowLeft size={15} strokeWidth={1.9} aria-hidden="true" />
           {origin === "words" ? "单词库" : "学习清单"}
         </Link>
         <span className={styles.separator} aria-hidden="true" />
         <span className={styles.listTag} translate="no">
-          LIST {String(listIndex).padStart(2, "0")}
+          LIST {formatIndex(listIndex)}
         </span>
-        {isPartial && <span className={styles.tag}>未满一组</span>}
+        {isPartial && (
+          <span className={`status-pill status-ready ${styles.tag}`}>
+            未满一组
+          </span>
+        )}
         {alreadyCompleted && !completed && (
-          <span className={`${styles.tag} ${styles.tagDone}`}>
-            <Check size={12} strokeWidth={2.4} />
+          <span className={`status-pill status-completed ${styles.tag}`}>
+            <Check size={12} strokeWidth={2.4} aria-hidden="true" />
             练过一次
           </span>
         )}
+        <span className={styles.timer}>
+          用时
+          <span className={styles.timerValue}>{formatClock(elapsed)}</span>
+        </span>
         <div className={styles.topActions}>
-          <span className={styles.timer}>
-            用时
-            <span className={styles.timerValue}>{formatClock(elapsed)}</span>
-          </span>
           <FeedbackModeControl variant="compact" />
           <button
             type="button"
             className={buttonClass({ variant: "ghost", size: "sm" })}
             onClick={resetSession}
           >
-            <RotateCcw size={15} strokeWidth={1.8} />
+            <RotateCcw size={14} strokeWidth={1.9} aria-hidden="true" />
             重新开始
           </button>
         </div>
       </div>
 
-      <div className={styles.heading}>
-        <div>
-          <h1 className={styles.title}>把单词和释义连起来</h1>
+      <div className={`rise ${styles.heading}`} style={rise(1)}>
+        <div className={styles.headingText}>
+          <h1 className={styles.title}>连线练习</h1>
           <p className={styles.subtitle}>
             {feedbackMode === "instant"
-              ? "拖动卡片边缘的圆点拉出连线，或先点单词、再点释义。"
-              : "拖动卡片边缘的圆点拉出连线，或先点单词、再点释义；全部连好后点『判定』一次看清结果。"}
+              ? "把单词拖到它的释义上，或先点词、再点释义。"
+              : "连好后点「判定」，一次看清哪些对、哪些要改。"}
           </p>
         </div>
         <p className={styles.score}>
@@ -554,25 +565,16 @@ export function PracticeSession({
         </p>
       </div>
 
-      <div className={styles.board}>
+      <div className={`rise ${styles.board}`} style={rise(2)}>
         <div className={styles.boardHead}>
           <span className={styles.columnLabel} id={termLabelId}>
-            <span className={styles.labelIndex} aria-hidden="true">
-              A
-            </span>
             单词
-          </span>
-          <span className={styles.centerMark} aria-hidden="true">
-            <Link2 size={15} strokeWidth={1.8} />
           </span>
           <span
             className={`${styles.columnLabel} ${styles.columnLabelRight}`}
             id={meaningLabelId}
           >
             释义
-            <span className={styles.labelIndex} aria-hidden="true">
-              B
-            </span>
           </span>
         </div>
 
@@ -587,6 +589,8 @@ export function PracticeSession({
                 <path
                   key={`${termId}-${meaningId}`}
                   d={curvePath(start, end)}
+                  /* pathLength 归一到 1：描边动画不用量长度，也不用 JS */
+                  pathLength={1}
                   className={`${styles.line} ${
                     status === "correct"
                       ? styles.lineCorrect
@@ -608,6 +612,7 @@ export function PracticeSession({
                     ? dragPoint
                     : activeSourcePoint,
                 )}
+                pathLength={1}
                 className={`${styles.line} ${styles.lineDragging}`}
               />
             )}
@@ -618,7 +623,7 @@ export function PracticeSession({
             role="group"
             aria-labelledby={termLabelId}
           >
-            {terms.map((word, index) => {
+            {terms.map((word) => {
               const status = getStatus("term", word.id);
               const isSelected =
                 selected?.side === "term" && selected.id === word.id;
@@ -653,9 +658,6 @@ export function PracticeSession({
                   onPointerDown={(event) => beginDrag(event, "term", word.id)}
                   onClick={() => handleNodeClick("term", word.id)}
                 >
-                  <span className={styles.index} aria-hidden="true">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
                   <span className={`${styles.text} ${styles.termText}`} lang="en" translate="no">
                     {word.term}
                   </span>
@@ -812,7 +814,7 @@ export function PracticeSession({
       <Dialog
         open={completed}
         onClose={() => setCompleted(false)}
-        title={`LIST ${String(listIndex).padStart(2, "0")} 全部连对`}
+        title={`${formatListLabel(listIndex)} 全部连对`}
         description={
           completionError
             ? `记录保存失败：${completionError}`
@@ -850,22 +852,22 @@ export function PracticeSession({
           </>
         }
       >
-        <div className={styles.stats}>
-          <span className={styles.statItem}>
-            <span className={styles.statValue}>{formatClock(resultElapsed)}</span>
-            <span className={styles.statLabel}>本轮用时</span>
+        <div className="data-strip">
+          <span className="data-cell">
+            <span className="data-value">{formatClock(resultElapsed)}</span>
+            <span className="data-label">本轮用时</span>
           </span>
-          <span className={styles.statItem}>
-            <span className={styles.statValue}>{attempts}</span>
-            <span className={styles.statLabel}>连接次数</span>
+          <span className="data-cell">
+            <span className="data-value">{attempts}</span>
+            <span className="data-label">连接次数</span>
           </span>
-          <span className={styles.statItem}>
+          <span className="data-cell">
             <span
-              className={`${styles.statValue}${mistakes > 0 ? ` ${styles.statWarm}` : ""}`}
+              className={`data-value${mistakes > 0 ? ` ${styles.statAlert}` : ""}`}
             >
               {mistakes}
             </span>
-            <span className={styles.statLabel}>失误次数</span>
+            <span className="data-label">失误次数</span>
           </span>
         </div>
       </Dialog>

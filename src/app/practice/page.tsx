@@ -65,7 +65,8 @@ function PracticeView() {
 
 function MissingList({ hasWords }: { hasWords: boolean }) {
   return (
-    <div className="shell page-shell">
+    <div className="shell page-fill page-shell">
+      <div className="empty-stage">
       <div className="empty-state">
         <span className="empty-state-icon">
           <Layers3 size={20} strokeWidth={1.8} />
@@ -88,6 +89,7 @@ function MissingList({ hasWords }: { hasWords: boolean }) {
             返回清单
           </Link>
         </div>
+      </div>
       </div>
     </div>
   );
