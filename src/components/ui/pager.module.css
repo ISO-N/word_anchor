@@ -3,38 +3,39 @@
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 2px;
 }
 
 .step,
 .page {
   display: inline-flex;
-  min-width: 32px;
-  height: 32px;
-  padding: 0 10px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--rule-strong);
+  border: 1px solid transparent;
   border-radius: var(--r-sm);
-  background: var(--slip);
-  color: var(--ink-soft);
+  color: var(--muted);
   font-size: var(--t-xs);
-  font-variant-numeric: tabular-nums;
+  transition: background var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
 }
 
 .step:hover:not(:disabled),
 .page:hover {
-  border-color: var(--ink-soft);
+  background: var(--active);
+  color: var(--ink);
 }
 
 .step:disabled {
   cursor: not-allowed;
-  opacity: 0.45;
+  opacity: 0.4;
 }
 
+/* 当前位置是这一行唯一填满的格子 */
 .current,
 .current:hover {
-  border-color: var(--ink);
   background: var(--ink);
   color: var(--on-ink);
 }

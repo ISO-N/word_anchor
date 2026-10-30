@@ -59,7 +59,7 @@ describe("wire v1 JSON body", () => {
 
   it("emoji 与中文都能往返", () => {
     const entries: IntakeEntry[] = [
-      { term: "naïve", meaning: "天真的 🍀" },
+      { term: "naïve", meaning: "天真的 🍀" }, // 用户输入的释义内容，不是界面图标 taste-skill-ignore
       { term: "schadenfreude", meaning: "幸灾乐祸\n第二行" },
     ];
 
