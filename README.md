@@ -167,6 +167,20 @@ src/
     └── ...
 ```
 
+## 设计说明：界面是一份墨线账簿
+
+界面上只有一个地方用颜色：**把单词连到释义的那根线**。
+
+- 页头、导航、页脚、`LIST` 编号、计时、进度轨全是灰阶（`--paper` / `--ink` / `--muted` / `--border` / `--control`）；
+- 颜色只留给连线的状态：未判定 `--line-idle`、连对 `--positive`、连错 `--negative`。连错同时用虚线与叉，颜色不是唯一信号；
+- 表面靠“一档色阶 + 1px 边”区分，不叠阴影；阴影只给真正浮起来的对话框；
+- 圆角两级（`--r-sm` 6 / `--r-md` 8），chip 才用全圆；
+- 字阶六步 13/15/17/20/24/32，衬线只承担一个职责：英文词。
+
+徽标、图表 hue、彩色导航这类装饰在这里没有位置——所以颜色一出现就*意味着*什么。
+
+页头是一条悬浮药丸（`site-header.module.css`）。它下面那条同色的不透明带子不是多余的：没有它，滚动时内容会从胶囊两侧和上方穿过去，读起来像渲染错误。也不用 `backdrop-filter`——在 WebView2 里滚动重绘很贵。这一条是刻意偏离 `design-taste-frontend` 的「no floating pill navigation」，其余规则照旧遵守。
+
 ## 设计说明：为什么收件箱是文件，不是表
 
 Rust 侧（axum）和前端（tauri-plugin-sql）各自持有一条 SQLite 连接。让 Rust 也写 `word-anchor.db` 就意味着两份 schema、两套写顺序，任何一边改动都可能悄悄漂移。
@@ -209,8 +223,8 @@ Rust 侧（axum）和前端（tauri-plugin-sql）各自持有一条 SQLite 连�
 - axum 0.8 + tokio 提供 127.0.0.1 本地 API
 - Next.js 16（App Router，`output: "export"` 静态导出）+ React 19 + TypeScript
 - SQLite（整份快照落盘，读盘过 `normalizeDatabase`）
-- 原生 CSS：`@layer` 分层 + CSS Modules，无 CSS 框架
-- Crimson Pro（OFL，latin 子集，经 `next/font/local` 自托管）
+- 原生 CSS：`@layer` 分层 + CSS Modules，无 CSS 框架；令牌集中在 `src/styles/tokens.css`
+- Crimson Pro（OFL，latin 子集，经 `next/font/local` 自托管）——只用于英文词本身；一切数字走系统无衬线 + `tabular-nums`
 
 ## 非目标（本期不做）
 
