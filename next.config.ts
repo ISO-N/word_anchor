@@ -1,19 +1,14 @@
 import type { NextConfig } from "next";
 
 /**
- * 部署到 https://<user>.github.io/<repo>/ 时，构建前设置
- * NEXT_PUBLIC_BASE_PATH=/<repo>；使用自定义域名时留空。
+ * 词锚只以 Tauri 桌面端发布：`pnpm build` 产出 out/，
+ * 由 `src-tauri/tauri.conf.json` 的 frontendDist 直接加载。
+ * 不再有 basePath / assetPrefix —— 网页版已退役。
  */
-const basePath = (process.env.NEXT_PUBLIC_BASE_PATH ?? "")
-  .trim()
-  .replace(/\/+$/, "");
-
 const nextConfig: NextConfig = {
-  // 纯静态导出：产物在 out/，可直接托管在 GitHub Pages
   output: "export",
+  /* 静态导出下每个路由都落成目录 + index.html，Tauri 的协议处理器同样按目录找 */
   trailingSlash: true,
-  basePath: basePath || undefined,
-  assetPrefix: basePath || undefined,
   images: { unoptimized: true },
 };
 

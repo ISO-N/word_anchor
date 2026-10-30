@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- 词锚图标：纸色底 + 墨色锚 + 陶土色锚点 -->
+  <rect width="1024" height="1024" rx="224" fill="#f6f1e7"/>
+  <g fill="none" stroke="#1d2721" stroke-width="62" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="512" cy="286" r="74"/>
+    <path d="M512 380v468"/>
+    <path d="M366 526h292"/>
+    <path d="M300 640c4 116 94 196 212 196s208-80 212-196"/>
+    <path d="M300 640l-62 24"/>
+    <path d="M724 640l62 24"/>
+  </g>
+  <circle cx="512" cy="286" r="18" fill="#a94a2a"/>
+</svg>

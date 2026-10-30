@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "词锚主窗口：本地 API 事件、备份文件读写、SQLite、开机自启",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "dialog:default",
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
+    "sql:default",
+    "sql:allow-execute",
+    "autostart:default"
+  ]
+}
