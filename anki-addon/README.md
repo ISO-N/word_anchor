@@ -7,7 +7,15 @@
 
 ## 安装
 
-**方式一：直接复制文件夹（推荐，改代码后重启 Anki 即生效）**
+**方式一：下载打包好的插件（推荐）**
+
+1. 打开 [latest release](../../releases/latest)，下载 `word-anchor-sync.ankiaddon`。
+2. 双击安装（或在 Anki 里 **工具 → 附加组件 → 从文件安装**）。
+3. 重启 Anki。**工具** 菜单里出现 **词锚 Word Anchor** 就成功了。
+
+> CI 每次推送到 `main` 都会重建这个 release，文件名固定，所以上面的链接永远是最新构建。
+
+**方式二：直接复制文件夹（改代码后重启 Anki 即生效）**
 
 1. Anki 菜单 **工具 → 附加组件 → 查看文件**，会打开 `addons21` 文件夹。
 2. 把本目录下的 `word_anchor_sync/` 整个复制进去。
@@ -17,10 +25,10 @@
 > 待收录队列在 `word_anchor_sync/user_files/queue.json`，删目录会一起没。
 >
 > 复制文件**不会**刷新插件目录里的 `meta.json`（Anki 实际读的是它，里面有你的设置）。
-> 改名、改版本范围这类元数据改动后，要么用「方式二」重装一次，要么手动把
+> 改名、改版本范围这类元数据改动后，要么用打包好的 `.ankiaddon` 重装一次，要么手动把
 > `meta.json` 的对应字段改掉再重启。
 
-**方式二：打包成 `.ankiaddon`**
+**方式三：自己打包成 `.ankiaddon`**
 
 ```bash
 python anki-addon/build.py

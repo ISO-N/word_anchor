@@ -4,11 +4,21 @@ on:
   push:
     branches: [main, master]
   pull_request:
+  workflow_dispatch:
+
+# PR 上的新推送取消旧任务；主分支串行执行，避免两个任务同时动 release
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  verify:
-    # Windows 才有 WebView2 / MSVC，与用户实际运行的平台一致
+  build:
+    # Windows 才有 WebView2 / MSVC / NSIS，与用户实际运行的平台一致
     runs-on: windows-latest
+    # 发布步骤要删除旧 release、创建新 release
+    permissions:
+      contents: write
+
     steps:
       - uses: actions/checkout@v7
 
@@ -35,5 +45,66 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # 类型 → lint → 类名 → vitest → 静态导出 → cargo test → 插件 unittest
-      - name: Verify everything
+      - name: Verify
         run: pnpm verify:all
+
+      # 以下只在主分支推送 / 手动触发时执行：PR 只跑检查，不产出安装包
+      - name: Build Windows installer
+        if: github.event_name != 'pull_request'
+        run: pnpm desktop:build
+
+      - name: Build Anki addon
+        if: github.event_name != 'pull_request'
+        run: python anki-addon/build.py
+
+      - name: Collect artifacts
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp "src-tauri/target/release/bundle/nsis/"*.exe dist/word-anchor-setup.exe
+          cp anki-addon/dist/word-anchor-sync.ankiaddon dist/
+          ls -lh dist
+
+      # 构建失败时也能在 Actions 页面手动下载
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          name: word-anchor-build
+          path: dist/*
+          if-no-files-found: error
+
+      # 只保留这一个 release：先删光历史 release（连同 tag），再建 latest
+      - name: Replace the rolling release
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          gh release list --limit 100 --json tagName --jq '.[].tagName' |
+            while read -r tag; do
+              if [ -n "$tag" ]; then
+                echo "删除旧 release：$tag"
+                gh release delete "$tag" --yes --cleanup-tag || gh release delete "$tag" --yes
+              fi
+            done
+
+          {
+            echo "每次推送到 \`main\` 都会重建这个 release；历史 release 已被删除，只保留这一个。"
+            echo
+            echo "- 提交：\`${GITHUB_SHA}\`"
+            echo "- 构建时间：$(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo
+            echo "## 下载"
+            echo
+            echo "- \`word-anchor-setup.exe\`：词锚 Windows 安装包（NSIS，按当前用户安装，无需管理员）"
+            echo "- \`word-anchor-sync.ankiaddon\`：Anki 插件，双击安装后重启 Anki"
+          } > release-notes.md
+
+          gh release create latest dist/* \
+            --target "$GITHUB_SHA" \
+            --title "词锚 · 最新构建（${GITHUB_SHA:0:7}）" \
+            --notes-file release-notes.md

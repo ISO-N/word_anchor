@@ -19,7 +19,7 @@ Anki 里按「重来」的单词会由插件**自动**推进词锚（本机 HTTP
 
 ## 安装（Windows）
 
-1. 到 [Releases](../../releases) 下载 `Word Anchor_<版本>_x64-setup.exe`（NSIS，按当前用户安装，不需要管理员）。
+1. 到 [latest release](../../releases/latest) 下载 `word-anchor-setup.exe`（NSIS，按当前用户安装，不需要管理员）。
 2. 双击安装并启动；首次启动会创建 `%APPDATA%\top.kariscode.wa\` 目录。
 3. 词库是空的——先到「单词库」加第一个词，或从旧网页版导入备份（见下）。
 
@@ -56,6 +56,23 @@ pnpm check:unused # 咨询：列出没被引用的类与设计令牌（不阻塞
 ```
 
 `pnpm check:css` 是类名守卫（TSX 里用到的类名必须在样式表中存在）。人工回归清单见 [`docs/qa.md`](docs/qa.md)。
+
+## 发布（CI）
+
+`.github/workflows/ci.yml` 每次推送到 `main` 都会：
+
+1. 在 `windows-latest` 上跑 `pnpm verify:all`（vitest + `cargo test` + 插件 unittest）；
+2. 构建 Windows 安装包与 Anki 插件包；
+3. **删除所有历史 release（连同 tag），只保留一个 `latest`**。
+
+所以 `/releases/latest` 永远指向最新一次主分支构建，资产文件名也固定，链接不会失效：
+
+| 资产 | 用途 |
+| --- | --- |
+| `word-anchor-setup.exe` | 词锚 Windows 安装包（NSIS） |
+| `word-anchor-sync.ankiaddon` | Anki 插件，双击安装 |
+
+PR 只跑检查、不产出安装包；构建失败时可以在 Actions 的 `word-anchor-build` artifact 里拿到同一次构建的两个文件。
 
 ## 数据存在哪里
 

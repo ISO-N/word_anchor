@@ -31,3 +31,6 @@ anki-addon/word_anchor_sync/user_files/
 # tauri
 src-tauri/target/
 src-tauri/gen/schemas/
+
+# CI 打包产物
+dist/
