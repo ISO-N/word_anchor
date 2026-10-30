@@ -1,35 +1,42 @@
+/* 账簿比页框窄：五列以内的表拉到 1160 只会在名字和数字之间留 600px 空白 */
+.page {
+  max-width: 940px;
+}
+
 .toolbar {
   display: flex;
-  padding: 12px 14px;
+  padding-block: 0 12px;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px 24px;
-  border: 1px solid var(--rule);
-  border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--slip) 55%, transparent);
+  gap: 10px 24px;
+  border-bottom: 1px solid var(--rule);
 }
 
 .overview {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px 20px;
+  gap: 4px 10px;
   color: var(--muted);
   font-size: var(--t-xs);
-  font-variant-numeric: tabular-nums;
 }
 
 .overview strong {
   color: var(--ink);
-  font-family: var(--font-term);
-  font-size: var(--t-lg);
+  font-size: var(--t-md);
   font-weight: 600;
+}
+
+.divider {
+  width: 1px;
+  height: 12px;
+  background: var(--control);
 }
 
 .progress {
   display: flex;
-  width: 140px;
+  width: 150px;
   align-items: center;
   gap: 8px;
 }
@@ -42,17 +49,14 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px 24px;
+  gap: 10px 18px;
 }
 
+/* 编排规则：一句话，放在行下方，不当文档读 */
 .fifo {
-  display: flex;
-  margin: 24px 0 18px;
-  padding: 2px 0 2px 12px;
-  align-items: flex-start;
-  border-left: 2px solid var(--oche);
+  margin: 14px 0 18px;
   color: var(--muted);
-  font-size: var(--t-sm);
+  font-size: var(--t-xs);
   text-wrap: pretty;
 }
 
@@ -62,7 +66,7 @@
 }
 
 .rows:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--ink);
   outline-offset: 6px;
   border-radius: var(--r-sm);
 }
@@ -75,10 +79,9 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 10px 20px;
-  border-top: 1px solid var(--rule-strong);
+  border-top: 1px solid var(--rule);
   color: var(--muted);
   font-size: var(--t-xs);
-  font-variant-numeric: tabular-nums;
 }
 
 .range {
@@ -97,23 +100,25 @@
 
 .nextHint {
   display: inline-flex;
-  min-height: 32px;
+  min-height: 28px;
   padding: 0 6px;
   align-items: center;
   gap: 4px;
   border-radius: var(--r-sm);
-  color: var(--accent);
+  color: var(--ink-soft);
   font-size: var(--t-xs);
   text-decoration: underline;
+  text-decoration-color: var(--control);
   text-underline-offset: 3px;
 }
 
 .nextHint:hover {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: var(--active);
+  text-decoration-color: var(--ink);
 }
 
 .nextHint svg {
-  transition: transform var(--dur) var(--ease);
+  transition: transform var(--dur-fast) var(--ease);
 }
 
 .nextHint:hover svg {
@@ -121,12 +126,8 @@
 }
 
 @media (pointer: coarse) {
-  .toolbar {
-    padding-block: 14px;
-  }
-
   .nextHint {
-    min-height: 44px;
+    min-height: 40px;
     padding-inline: 10px;
   }
 }

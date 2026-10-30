@@ -37,7 +37,7 @@ export function ListSizeControl() {
           disabled={size <= MIN_LIST_SIZE}
           aria-label="减少每组单词数"
         >
-          <Minus size={15} strokeWidth={2} />
+          <Minus size={14} strokeWidth={2} aria-hidden="true" />
         </button>
         <span className={styles.value} aria-live="polite">
           {size}
@@ -49,16 +49,16 @@ export function ListSizeControl() {
           disabled={size >= MAX_LIST_SIZE}
           aria-label="增加每组单词数"
         >
-          <Plus size={15} strokeWidth={2} />
+          <Plus size={14} strokeWidth={2} aria-hidden="true" />
         </button>
       </div>
 
-      <div className={styles.presets} role="group" aria-label="预设每组单词数">
+      <div className="segment-group" role="group" aria-label="预设每组单词数">
         {PRESETS.map((preset) => (
           <button
             key={preset}
             type="button"
-            className={styles.preset}
+            className="segment"
             aria-pressed={size === preset}
             onClick={() => applySize(preset)}
           >

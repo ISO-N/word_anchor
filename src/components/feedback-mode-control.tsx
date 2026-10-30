@@ -39,23 +39,19 @@ export function FeedbackModeControl({
   }
 
   return (
-    <div
-      className={`${styles.control} ${
-        variant === "compact" ? styles.compact : ""
-      }`}
-    >
-      {variant === "inline" && <span className={styles.label}>反馈方式</span>}
+    <div className={styles.control}>
+      {variant === "inline" && <span className={styles.label}>判定方式</span>}
 
-      <div className={styles.options} role="group" aria-label="反馈方式">
+      <div className="segment-group" role="group" aria-label="反馈方式">
         {OPTIONS.map(({ value, label, icon: Icon }) => (
           <button
             key={value}
             type="button"
-            className={styles.option}
+            className="segment"
             aria-pressed={mode === value}
             onClick={() => applyMode(value)}
           >
-            <Icon size={14} strokeWidth={1.9} aria-hidden="true" />
+            <Icon size={13} strokeWidth={1.9} aria-hidden="true" />
             {label}
           </button>
         ))}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useMemo, useRef } from "react";
+import type { CSSProperties } from "react";
 import { ArrowRight, Layers3, Plus } from "lucide-react";
 import { DataPlaceholder } from "@/components/data-placeholder";
 import { FeedbackModeControl } from "@/components/feedback-mode-control";
@@ -15,6 +16,10 @@ import { LIST_PAGE_SIZE, paginate, parsePageParam } from "@/lib/pagination";
 import { useAppData } from "@/lib/use-app-data";
 import { usePageReveal } from "@/lib/use-page-reveal";
 import styles from "./page.module.css";
+
+/** 入场延迟：标题 0，工具栏 1，行 2 */
+const rise = (step: number): CSSProperties =>
+  ({ "--i": step }) as CSSProperties;
 
 /**
  * 静态导出下用查询参数保存页码：/lists/?page=2
@@ -77,17 +82,17 @@ function ListsView() {
     : 0;
 
   return (
-    <div className="shell page-shell">
-      <section className="page-heading">
+    <div className={`shell page-fill page-shell ${styles.page}`}>
+      <section className={`rise page-heading`} style={rise(0)}>
         <div>
           <h1>学习清单</h1>
           <p className="page-description">
-            按录入顺序先进先出，每份清单都是一次安静的回顾。
+            按录入顺序先进先出，每 {settings.listSize} 个词一组。
           </p>
         </div>
         <div className="heading-actions">
           <Link href="/words" className={buttonClass({ variant: "ghost" })}>
-            <Plus size={17} strokeWidth={1.8} />
+            <Plus size={16} strokeWidth={1.9} aria-hidden="true" />
             添加单词
           </Link>
           {nextList && (
@@ -96,25 +101,29 @@ function ListsView() {
               className={buttonClass()}
             >
               开始下一组
-              <ArrowRight size={17} strokeWidth={1.8} />
+              <ArrowRight size={16} strokeWidth={1.9} aria-hidden="true" />
             </Link>
           )}
         </div>
       </section>
 
-      <section className={styles.toolbar} aria-label="清单概览与设置">
+      <section
+        className={`rise ${styles.toolbar}`}
+        style={rise(1)}
+        aria-label="清单概览与设置"
+      >
         <div className={styles.overview}>
           <span>
             <strong>{lists.length}</strong> 份清单
           </span>
+          <span className={styles.divider} aria-hidden="true" />
           <span>
-            <strong>{completedCount}</strong> 已完成
+            完成 <strong>{completedCount}</strong> 份
           </span>
           <span className={styles.progress}>
             <span className={`progress-rule ${styles.progressBar}`}>
               <span style={{ width: `${progress}%` }} />
             </span>
-            {progress}%
           </span>
         </div>
         <div className={styles.settings}>
@@ -124,28 +133,30 @@ function ListsView() {
       </section>
 
       {words.length === 0 ? (
-        <div className="empty-state" style={{ marginTop: 24 }}>
+        <div className="empty-stage">
+        <div className="empty-state">
           <span className="empty-state-icon">
-            <Layers3 size={20} strokeWidth={1.8} />
+            <Layers3 size={22} strokeWidth={1.8} aria-hidden="true" />
           </span>
           <h2>还没有可编排的单词</h2>
           <p>往词库里添加单词，学习清单就会自动出现。</p>
           <Link href="/words" className={buttonClass()}>
-            <Plus size={17} strokeWidth={1.8} />
+            <Plus size={16} strokeWidth={1.9} aria-hidden="true" />
             去添加单词
           </Link>
+        </div>
         </div>
       ) : (
         <>
           <p className={styles.fifo}>
-            最早的单词先进入 LIST 01，排满 {settings.listSize}{" "}
-            个后开启下一份；修改每组数量会立即重新编排，编号也可能变化。
-            Anki 里又按了一次「重来」的词会被挪到队尾，最后一组会再练它一次。
+            改动每组数量会立即重新编排，编号也会随之变化。Anki
+            里再按一次「重来」的词会被挪到队尾。
           </p>
 
           <div
             ref={rowsRef}
-            className={styles.rows}
+            className={`rise ${styles.rows}`}
+            style={rise(2)}
             role="region"
             aria-label={`清单列表，第 ${pageData.page} 页`}
             tabIndex={-1}
@@ -172,7 +183,7 @@ function ListsView() {
                   onClick={() => goToPage(nextPage)}
                 >
                   下一组在第 {nextPage} 页
-                  <ArrowRight size={14} strokeWidth={1.8} />
+                  <ArrowRight size={14} strokeWidth={1.9} aria-hidden="true" />
                 </button>
               )}
 
